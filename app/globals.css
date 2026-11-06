@@ -1,0 +1,207 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --font-sans: var(--font-inter), var(--font-arabic), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --background: oklch(0.985 0.002 247);
+  --foreground: oklch(0.21 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.02 260);
+  --primary: oklch(0.52 0.19 260);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.008 250);
+  --secondary-foreground: oklch(0.3 0.03 260);
+  --muted: oklch(0.96 0.008 250);
+  --muted-foreground: oklch(0.53 0.02 255);
+  --accent: oklch(0.95 0.015 255);
+  --accent-foreground: oklch(0.3 0.04 260);
+  --destructive: oklch(0.58 0.22 27);
+  --border: oklch(0.91 0.008 255);
+  --input: oklch(0.91 0.008 255);
+  --ring: oklch(0.52 0.19 260);
+  --chart-1: oklch(0.55 0.19 260);
+  --chart-2: oklch(0.62 0.14 165);
+  --chart-3: oklch(0.75 0.15 75);
+  --chart-4: oklch(0.55 0.2 305);
+  --chart-5: oklch(0.62 0.19 15);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.975 0.004 255);
+  --sidebar-foreground: oklch(0.24 0.02 260);
+  --sidebar-primary: oklch(0.52 0.19 260);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.93 0.018 255);
+  --sidebar-accent-foreground: oklch(0.3 0.05 260);
+  --sidebar-border: oklch(0.91 0.008 255);
+  --sidebar-ring: oklch(0.52 0.19 260);
+}
+
+html[lang="ar"] {
+  --font-sans: var(--font-arabic), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+.dark {
+  --background: oklch(0.16 0.012 260);
+  --foreground: oklch(0.95 0.005 250);
+  --card: oklch(0.205 0.014 260);
+  --card-foreground: oklch(0.95 0.005 250);
+  --popover: oklch(0.22 0.014 260);
+  --popover-foreground: oklch(0.95 0.005 250);
+  --primary: oklch(0.65 0.16 260);
+  --primary-foreground: oklch(0.15 0.02 260);
+  --secondary: oklch(0.27 0.014 260);
+  --secondary-foreground: oklch(0.95 0.005 250);
+  --muted: oklch(0.26 0.014 260);
+  --muted-foreground: oklch(0.7 0.015 255);
+  --accent: oklch(0.29 0.02 260);
+  --accent-foreground: oklch(0.96 0.005 250);
+  --destructive: oklch(0.68 0.19 25);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.65 0.16 260);
+  --chart-1: oklch(0.68 0.17 260);
+  --chart-2: oklch(0.7 0.13 165);
+  --chart-3: oklch(0.8 0.14 80);
+  --chart-4: oklch(0.68 0.18 305);
+  --chart-5: oklch(0.7 0.17 15);
+  --sidebar: oklch(0.185 0.014 260);
+  --sidebar-foreground: oklch(0.92 0.005 250);
+  --sidebar-primary: oklch(0.65 0.16 260);
+  --sidebar-primary-foreground: oklch(0.15 0.02 260);
+  --sidebar-accent: oklch(0.27 0.02 260);
+  --sidebar-accent-foreground: oklch(0.96 0.005 250);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.65 0.16 260);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body {
+    min-height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    overflow-x: clip;
+  }
+  html {
+    @apply font-sans;
+  }
+  [dir="rtl"] .rtl-flip {
+    transform: scaleX(-1);
+  }
+}
+
+@layer utilities {
+  [data-app-scroll] {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+}
+
+@layer utilities {
+  .numeric {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+}
+
+/* Professional print output for payslips and reports */
+@media print {
+  [data-print-hide] {
+    display: none !important;
+  }
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  [data-app-shell] {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  [data-app-shell] aside,
+  [data-app-shell] header {
+    display: none !important;
+  }
+  [data-app-shell] > div {
+    padding-inline-start: 0 !important;
+  }
+  [data-app-scroll] {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  [data-app-scroll] > div {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .print-area {
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+  @page {
+    margin: 14mm;
+  }
+}

@@ -1,0 +1,181 @@
+# HRSYS — Human Resources Management System
+
+HRSYS is a production-oriented HR platform built with **Next.js App Router**, **TypeScript**, **PostgreSQL**, **Prisma**, and **Tailwind CSS**. It is designed as both a working HR system and a learning project: every module implements a real HR concept instead of a mocked screen.
+
+## Highlights
+
+- **Bilingual UI** — full English and Arabic catalogs, `/en` and `/ar`, RTL/LTR switching, localized dates, numbers, currencies, names, and HR terminology.
+- **Yemen localization** — Yemen as the default country, YER currency, `Asia/Aden` timezone, `+967` phone formatting, Yemeni public holidays, and Yemeni seed data.
+- **Light / Dark / System themes** with persistence and RTL-safe layout.
+- **Database-backed authentication** — HMAC-hashed session tokens, httpOnly cookies, bcrypt password hashing, lockout after failed attempts, password reset tokens, session revocation.
+- **Granular RBAC** — 7 roles and 70+ permission codes enforced in server components, server actions, navigation, and API routes.
+- **Real HR modules** — employees, organization, attendance, leave, payroll, recruitment, onboarding, offboarding, performance, training, assets, loans, requests/approvals, notifications, audit, reports, and settings.
+- **Real PostgreSQL data** — no fake JSON database and no frontend-only authorization.
+- **Approval workflows** — leave, employee requests, and employee loans use persisted approval decisions with server-side authorization.
+- **Audit trail** — authentication, employee changes, approvals, payroll finalization, and other sensitive actions are recorded.
+- **Settings administration** — company, branches, leave types, salary components, schedules, holidays, user roles, and role permissions are editable by authorized administrators.
+- **CSV export** — employee directory export from the reports module.
+- **Production build verified** — `npm run build` completes successfully.
+
+## Stack
+
+| Layer | Technology |
+| --- | --- |
+| Framework | Next.js 16.4 (App Router, Server Components, Server Actions) |
+| Language | TypeScript (strict) |
+| UI | Tailwind CSS v4, shadcn/ui, Radix UI, Lucide icons |
+| Database | PostgreSQL 16 |
+| ORM | Prisma 6.19 |
+| Auth | Custom DB-backed sessions (bcrypt + HMAC token hashes) |
+| Validation | Zod 4 |
+| Forms | React Hook Form + Zod resolvers where useful |
+| i18n | next-intl v4 |
+| Charts | Recharts |
+| Exports | CSV route handlers; `xlsx` available for future spreadsheet exports |
+
+## Quick Start
+
+### 1. Prerequisites
+
+- Node.js 20+
+- PostgreSQL 14+
+- npm
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env`:
+
+```env
+DATABASE_URL="postgresql://hrsys:your-password@localhost:5432/HRSYS?schema=public"
+AUTH_SECRET="generate-with-openssl-rand-base64-32"
+APP_URL="http://localhost:3000"
+```
+
+### 3. Install and initialize
+
+```bash
+npm install
+npx prisma generate
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+### 4. Run
+
+```bash
+PORT=3000 npm run dev
+```
+
+Open <http://localhost:3000/en/login> or <http://localhost:3000/ar/login>.
+
+### Development accounts
+
+The seed creates these local development accounts:
+
+| Login | Password | Role | Linked employee |
+| --- | --- | --- | --- |
+| `admin` | `admin` | SUPER_ADMIN | — (system account) |
+| `hr@hrsys.local` | `Hrsys@2026!` | HR_ADMIN | HR Manager, EMP-0002 |
+| `manager@hrsys.local` | `Hrsys@2026!` | MANAGER | IT Manager, EMP-0008 |
+| `employee@hrsys.local` | `Hrsys@2026!` | EMPLOYEE | Software Engineer, EMP-0010 |
+| `payroll@hrsys.local` | `Hrsys@2026!` | PAYROLL_OFFICER | Payroll Officer, EMP-0007 |
+| `recruiter@hrsys.local` | `Hrsys@2026!` | RECRUITER | Recruiter, EMP-0004 |
+
+> The `admin` / `admin` login is intentionally weak and exists only for local development. Set `ADMIN_PASSWORD` before seeding if you need a different value, and never use these credentials in production. See [SECURITY.md](SECURITY.md).
+
+## Scripts
+
+```bash
+npm run dev          # development server
+npm run build        # production build
+npm run start        # production server
+npm run typecheck    # TypeScript check
+npm run lint         # ESLint
+npm run db:generate  # generate Prisma client
+npm run db:migrate   # create/apply a development migration
+npm run db:seed      # reset and seed the database
+npm run db:studio    # Prisma Studio
+```
+
+## Project Structure
+
+```text
+app/
+  [locale]/
+    (app)/                  authenticated application shell
+      dashboard/
+      employees/            list, profile, create, edit
+      departments/          hierarchy and create
+      positions/            list and create
+      attendance/           records, check-in/out, corrections
+      leave/                balances, requests, approvals
+      payroll/              runs, payslips, calculation, approval, finalization
+      recruitment/          vacancies, pipeline, interviews, offers
+      onboarding/           plans and task checklists
+      offboarding/          exit cases and checklists
+      performance/          cycles, reviews, goals
+      training/             courses and enrollments
+      assets/               asset register, assignment and return
+      loans/                loan requests, approvals and installments
+      requests/             employee requests and approval steps
+      reports/              HR analytics and CSV export
+      settings/             company, users, roles, leave, payroll, schedules
+      audit/                audit log
+      notifications/        notification inbox
+      profile/              account, password, sessions
+    login/
+    forgot-password/
+    reset-password/
+    forbidden/
+  api/reports/employees/    authenticated CSV export
+components/
+  layout/                   shell, sidebar, locale/theme controls
+  shared/                   page header, stat card, badges, empty states
+  ui/                       shadcn primitives
+  employees/ departments/ positions/ payroll/ leave/ requests/ profile/ ...
+lib/
+  auth/                     session, password, tokens, audit, actions
+  permissions/              permission catalog and role presets
+  validations/              Zod schemas
+  db/                       Prisma singleton
+  format.ts                 locale-aware formatting
+  navigation.ts             permission-filtered navigation
+i18n/                       routing, request config, navigation helpers
+messages/                   en.json and ar.json
+prisma/                     schema, migrations, seed
+```
+
+## Documentation
+
+- [SETUP.md](SETUP.md) — installation, database setup, seeding, deployment, troubleshooting
+- [ARCHITECTURE.md](ARCHITECTURE.md) — architecture, authorization, i18n/RTL, theme, module map, roadmap
+- [DATABASE.md](DATABASE.md) — data model, relationships, constraints, indexing, soft deletion
+- [HR_WORKFLOWS.md](HR_WORKFLOWS.md) — real HR rules for attendance, leave, payroll, recruitment, lifecycle, performance, assets, approvals
+- [SECURITY.md](SECURITY.md) — authentication, RBAC, secrets, audit, threat model, production checklist
+- [PHASES.md](PHASES.md) — phase-by-phase implementation notes and lessons
+
+## Design Principles
+
+1. **Authorization is server-side.** Hiding a button is UX; permission checks in layouts, pages, actions, and API routes are security.
+2. **The database is the source of truth.** Dashboard and report numbers come from SQL aggregates, never hardcoded arrays.
+3. **Business rules belong in the server layer.** Workday counting, overlap checks, balances, approval routing, and payroll totals are not implemented in the browser.
+4. **Money and dates are explicit.** Money uses `Decimal` in PostgreSQL and `Decimal.js` through Prisma. Date-only HR values are stored as `@db.Date` and formatted in UTC; instants use the company timezone.
+5. **Localization is content, not decoration.** Arabic is a first-class locale with translated navigation, forms, errors, empty states, HR terms, and RTL layout.
+6. **Sensitive data is permission-gated.** Salary and documents are shown only to users with the relevant permission.
+7. **Destructive actions are auditable.** Sensitive changes write to `audit_logs`.
+
+## Current Scope and Next Steps
+
+Implemented: authentication, RBAC, dashboard, employee directory/profile/create/edit, organization, attendance, leave, payroll, recruitment (vacancies, candidates, stages, interviews, offers), onboarding (plan creation, checklists), offboarding (case creation, checklists, account deactivation), performance (cycles, reviews, goals), training (courses, enrollments), assets (register, assignment, return), loans (requests, approvals, installments), requests, notifications, audit, reports, settings administration, profile/security, bilingual UI, themes, seed data, and documentation.
+
+Remaining production increments:
+
+- document upload to private object storage
+- email delivery for password reset and notifications
+- automated unit, integration, and end-to-end tests
+- background jobs for payroll, reminders, and notification delivery
+- rate limiting, observability, and backup automation
