@@ -43,6 +43,7 @@ import {
   Settings,
   ShieldCheck,
   Target,
+  UserCog,
   UserRound,
   Users,
   Wallet,
@@ -65,6 +66,7 @@ const ICONS: Record<NavIcon, React.ComponentType<{ className?: string }>> = {
   assets: Laptop,
   requests: ClipboardList,
   reports: BookOpen,
+  users: UserCog,
   settings: Settings,
   audit: ShieldCheck,
 };

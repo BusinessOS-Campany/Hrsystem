@@ -14,6 +14,7 @@ HRSYS is a production-oriented HR platform built with **Next.js App Router**, **
 - **Approval workflows** — leave, employee requests, and employee loans use persisted approval decisions with server-side authorization.
 - **Audit trail** — authentication, employee changes, approvals, payroll finalization, and other sensitive actions are recorded.
 - **Settings administration** — company, branches, leave types, salary components, schedules, holidays, user roles, and role permissions are editable by authorized administrators.
+- **User administration** — a dedicated `/users` page gated by `user.manage` supports creating accounts, assigning roles, linking employees, activating/deactivating users, and resetting passwords.
 - **CSV export** — employee directory export from the reports module.
 - **Production build verified** — `npm run build` completes successfully.
 
@@ -85,7 +86,7 @@ The seed creates these local development accounts:
 | `payroll@hrsys.local` | `Hrsys@2026!` | PAYROLL_OFFICER | Payroll Officer, EMP-0007 |
 | `recruiter@hrsys.local` | `Hrsys@2026!` | RECRUITER | Recruiter, EMP-0004 |
 
-> The `admin` / `admin` login is intentionally weak and exists only for local development. Set `ADMIN_PASSWORD` before seeding if you need a different value, and never use these credentials in production. See [SECURITY.md](SECURITY.md).
+> The `admin` / `admin` login is intentionally weak. It is available for local development and was enabled on the current deployment at the account owner's request. Change the admin password from the profile page before exposing the system to real users. Set `ADMIN_PASSWORD` before seeding if you need a different seed value. See [SECURITY.md](SECURITY.md).
 
 ## Scripts
 
@@ -123,6 +124,7 @@ app/
       loans/                loan requests, approvals and installments
       requests/             employee requests and approval steps
       reports/              HR analytics and CSV export
+      users/                user accounts, roles, status and password management
       settings/             company, users, roles, leave, payroll, schedules
       audit/                audit log
       notifications/        notification inbox

@@ -35,6 +35,7 @@ export type SettingsField = {
   type?:
     | "text"
     | "email"
+    | "password"
     | "tel"
     | "url"
     | "number"

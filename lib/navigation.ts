@@ -15,6 +15,7 @@ export type NavIcon =
   | "assets"
   | "requests"
   | "reports"
+  | "users"
   | "settings"
   | "audit";
 
@@ -80,6 +81,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     key: "system",
     items: [
+      { key: "users", href: "/users", icon: "users", permission: "user.manage" },
       { key: "settings", href: "/settings", icon: "settings", permission: "settings.view" },
       { key: "audit", href: "/audit", icon: "audit", permission: "audit.view" },
     ],

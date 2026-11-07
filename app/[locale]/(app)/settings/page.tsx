@@ -403,11 +403,18 @@ export default async function SettingsPage({
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="size-4" /> {t("users")}
-            </CardTitle>
-            <CardDescription>{t("usersList")}</CardDescription>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="size-4" /> {t("users")}
+              </CardTitle>
+              <CardDescription>{t("usersList")}</CardDescription>
+            </div>
+            {canManageUsers && (
+              <Button asChild size="sm" variant="outline">
+                <Link href="/users">{common("viewAll")}</Link>
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             <Table>
