@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
@@ -28,6 +28,13 @@ const mono = Geist_Mono({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F4F5F7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0F172A" },
+  ],
+};
+
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
@@ -45,6 +52,15 @@ export async function generateMetadata({
       template: `%s · ${t("appName")}`,
     },
     description: t("tagline"),
+    applicationName: t("appName"),
+    appleWebApp: {
+      capable: true,
+      title: t("appName"),
+      statusBarStyle: "default",
+    },
+    formatDetection: {
+      telephone: false,
+    },
   };
 }
 

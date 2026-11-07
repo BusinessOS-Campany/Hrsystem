@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="background" x1="92" y1="52" x2="964" y2="1012" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBFCFD" />
+      <stop offset="0.5" stop-color="#F3F5F8" />
+      <stop offset="1" stop-color="#E7EBF1" />
+    </linearGradient>
+    <radialGradient id="plate" cx="50%" cy="40%" r="62%">
+      <stop offset="0" stop-color="#FFFFFF" />
+      <stop offset="0.68" stop-color="#FAFBFC" />
+      <stop offset="1" stop-color="#EDF1F5" />
+    </radialGradient>
+    <radialGradient id="plateShadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#0F172A" stop-opacity="0.16" />
+      <stop offset="0.5" stop-color="#0F172A" stop-opacity="0.09" />
+      <stop offset="0.78" stop-color="#0F172A" stop-opacity="0.035" />
+      <stop offset="1" stop-color="#0F172A" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="topGlow" cx="50%" cy="0%" r="70%">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="brand" x1="150" y1="132" x2="880" y2="900" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2DD4BF" />
+      <stop offset="0.3" stop-color="#06B6D4" />
+      <stop offset="0.62" stop-color="#3B82F6" />
+      <stop offset="0.84" stop-color="#6366F1" />
+      <stop offset="1" stop-color="#8B5CF6" />
+    </linearGradient>
+    <linearGradient id="userFill" x1="512" y1="286" x2="512" y2="824" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" />
+      <stop offset="0.62" stop-color="#FCFDFE" />
+      <stop offset="1" stop-color="#F2F5F9" />
+    </linearGradient>
+  </defs>
+
+  <rect x="24" y="24" width="976" height="976" rx="236" fill="url(#background)" />
+<rect x="24" y="24" width="976" height="976" rx="236" fill="none" stroke="#FFFFFF" stroke-opacity="0.72" stroke-width="4" />
+<rect x="34" y="34" width="956" height="956" rx="228" fill="none" stroke="#0F172A" stroke-opacity="0.045" stroke-width="3" />
+
+  <circle cx="512" cy="538" r="424" fill="url(#plateShadow)" />
+  <circle cx="512" cy="512" r="384" fill="url(#plate)" />
+  <circle cx="512" cy="512" r="384" fill="url(#topGlow)" opacity="0.62" />
+  <circle cx="512" cy="512" r="382" fill="none" stroke="#FFFFFF" stroke-opacity="0.78" stroke-width="4" />
+  <circle cx="512" cy="512" r="376" fill="none" stroke="#94A3B8" stroke-opacity="0.13" stroke-width="2" />
+
+  <g stroke="url(#brand)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M 512.79 326.77 A 184 184 0 0 1 523.57 377.49 L 475.83 396.76 A 136 136 0 0 1 469.23 432.36 L 506.9 467.47 A 184 184 0 0 1 478.66 510.96 L 431.27 490.83 A 136 136 0 0 1 401.43 511.34 L 403.23 562.79 A 184 184 0 0 1 352.51 573.57 L 333.24 525.83 A 136 136 0 0 1 297.64 519.23 L 262.53 556.9 A 184 184 0 0 1 219.04 528.66 L 239.17 481.27 A 136 136 0 0 1 218.66 451.43 L 167.21 453.23 A 184 184 0 0 1 156.43 402.51 L 204.17 383.24 A 136 136 0 0 1 210.77 347.64 L 173.1 312.53 A 184 184 0 0 1 201.34 269.04 L 248.73 289.17 A 136 136 0 0 1 278.57 268.66 L 276.77 217.21 A 184 184 0 0 1 327.49 206.43 L 346.76 254.17 A 136 136 0 0 1 382.36 260.77 L 417.47 223.1 A 184 184 0 0 1 460.96 251.34 L 440.83 298.73 A 136 136 0 0 1 461.34 328.57 L 512.79 326.77 Z" stroke-width="26" />
+    <circle cx="340" cy="390" r="58" stroke-width="20" />
+    <path d="M 857.62 667.51 A 160 160 0 0 1 843.68 710.39 L 799.13 704.01 A 118 118 0 0 1 778.73 727.9 L 792 770.9 A 160 160 0 0 1 751.83 791.37 L 724.84 755.36 A 118 118 0 0 1 693.52 757.82 L 672.49 797.62 A 160 160 0 0 1 629.61 783.68 L 635.99 739.13 A 118 118 0 0 1 612.1 718.73 L 569.1 732 A 160 160 0 0 1 548.63 691.83 L 584.64 664.84 A 118 118 0 0 1 582.18 633.52 L 542.38 612.49 A 160 160 0 0 1 556.32 569.61 L 600.87 575.99 A 118 118 0 0 1 621.27 552.1 L 608 509.1 A 160 160 0 0 1 648.17 488.63 L 675.16 524.64 A 118 118 0 0 1 706.48 522.18 L 727.51 482.38 A 160 160 0 0 1 770.39 496.32 L 764.01 540.87 A 118 118 0 0 1 787.9 561.27 L 830.9 548 A 160 160 0 0 1 851.37 588.17 L 815.36 615.16 A 118 118 0 0 1 817.82 646.48 L 857.62 667.51 Z" stroke-width="26" />
+    <circle cx="700" cy="640" r="50" stroke-width="20" />
+  </g>
+
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M 276 822 C 276 672 382 606 512 606 C 642 606 748 672 748 822 Z" fill="url(#userFill)" />
+    <path d="M 292 814 C 292 682 388 622 512 622 C 636 622 732 682 732 814" fill="none" stroke="#FFFFFF" stroke-width="48" />
+    <path d="M 292 814 C 292 682 388 622 512 622 C 636 622 732 682 732 814" fill="none" stroke="url(#brand)" stroke-width="32" />
+    <circle cx="512" cy="402" r="114" fill="url(#userFill)" />
+    <circle cx="512" cy="402" r="114" fill="none" stroke="#FFFFFF" stroke-width="48" />
+    <circle cx="512" cy="402" r="114" fill="none" stroke="url(#brand)" stroke-width="32" />
+  </g>
+</svg>
