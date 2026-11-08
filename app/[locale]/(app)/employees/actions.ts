@@ -22,6 +22,17 @@ export type EmployeeActionResult = {
   tempPassword?: string;
 };
 
+export type EmployeeStatusResult = {
+  ok: boolean;
+  error?:
+    | "unauthorized"
+    | "notFound"
+    | "self"
+    | "alreadySuspended"
+    | "finalized"
+    | "notSuspended";
+};
+
 function dateOnly(value?: string) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -331,4 +342,185 @@ export async function updateEmployeeAction(
   } catch {
     return { ok: false, error: "validation" };
   }
+}
+
+export async function suspendEmployeeAction(
+  locale: string,
+  employeeId: string,
+): Promise<EmployeeStatusResult> {
+  const actor = await getCurrentUser();
+  if (!actor || !hasPermission(actor, "employee.update")) {
+    return { ok: false, error: "unauthorized" };
+  }
+  if (actor.employeeId === employeeId) {
+    return { ok: false, error: "self" };
+  }
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, deletedAt: null },
+    select: {
+      id: true,
+      status: true,
+      user: { select: { id: true } },
+      employments: {
+        where: { isCurrent: true },
+        select: { id: true, status: true },
+      },
+    },
+  });
+
+  if (!employee) return { ok: false, error: "notFound" };
+  if (employee.status === "SUSPENDED") {
+    return { ok: false, error: "alreadySuspended" };
+  }
+  if (["TERMINATED", "RESIGNED", "RETIRED"].includes(employee.status)) {
+    return { ok: false, error: "finalized" };
+  }
+
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.employee.update({
+      where: { id: employeeId },
+      data: { status: "SUSPENDED" },
+    });
+
+    await tx.employment.updateMany({
+      where: { employeeId, isCurrent: true },
+      data: { status: "SUSPENDED" },
+    });
+
+    if (employee.employments.length > 0) {
+      await tx.employmentHistory.createMany({
+        data: employee.employments.map((employment) => ({
+          employeeId,
+          employmentId: employment.id,
+          changeType: "STATUS_CHANGE",
+          effectiveDate: now,
+          oldData: { status: employment.status },
+          newData: { status: "SUSPENDED" },
+          reason: "SUSPENDED",
+          createdById: actor.id,
+        })),
+      });
+    }
+
+    if (employee.user) {
+      await tx.user.update({
+        where: { id: employee.user.id },
+        data: { isActive: false },
+      });
+      await tx.session.updateMany({
+        where: { userId: employee.user.id, revokedAt: null },
+        data: { revokedAt: now },
+      });
+    }
+
+    await writeAudit(
+      {
+        userId: actor.id,
+        action: "UPDATE",
+        entity: "Employee",
+        entityId: employeeId,
+        oldData: { status: employee.status },
+        newData: {
+          status: "SUSPENDED",
+          accountDeactivated: Boolean(employee.user),
+          sessionsRevoked: Boolean(employee.user),
+        },
+      },
+      tx,
+    );
+  });
+
+  revalidatePath(`/${locale}/employees`);
+  revalidatePath(`/${locale}/employees/${employeeId}`);
+  revalidatePath(`/${locale}/dashboard`);
+
+  return { ok: true };
+}
+
+export async function reactivateEmployeeAction(
+  locale: string,
+  employeeId: string,
+): Promise<EmployeeStatusResult> {
+  const actor = await getCurrentUser();
+  if (!actor || !hasPermission(actor, "employee.update")) {
+    return { ok: false, error: "unauthorized" };
+  }
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: employeeId, deletedAt: null },
+    select: {
+      id: true,
+      status: true,
+      user: { select: { id: true } },
+      employments: {
+        where: { isCurrent: true },
+        select: { id: true, status: true },
+      },
+    },
+  });
+
+  if (!employee) return { ok: false, error: "notFound" };
+  if (employee.status !== "SUSPENDED") {
+    return { ok: false, error: "notSuspended" };
+  }
+
+  const now = new Date();
+
+  await prisma.$transaction(async (tx) => {
+    await tx.employee.update({
+      where: { id: employeeId },
+      data: { status: "ACTIVE" },
+    });
+
+    await tx.employment.updateMany({
+      where: { employeeId, isCurrent: true },
+      data: { status: "ACTIVE" },
+    });
+
+    if (employee.employments.length > 0) {
+      await tx.employmentHistory.createMany({
+        data: employee.employments.map((employment) => ({
+          employeeId,
+          employmentId: employment.id,
+          changeType: "STATUS_CHANGE",
+          effectiveDate: now,
+          oldData: { status: employment.status },
+          newData: { status: "ACTIVE" },
+          reason: "REACTIVATED",
+          createdById: actor.id,
+        })),
+      });
+    }
+
+    if (employee.user) {
+      await tx.user.update({
+        where: { id: employee.user.id },
+        data: { isActive: true },
+      });
+    }
+
+    await writeAudit(
+      {
+        userId: actor.id,
+        action: "UPDATE",
+        entity: "Employee",
+        entityId: employeeId,
+        oldData: { status: employee.status },
+        newData: {
+          status: "ACTIVE",
+          accountReactivated: Boolean(employee.user),
+        },
+      },
+      tx,
+    );
+  });
+
+  revalidatePath(`/${locale}/employees`);
+  revalidatePath(`/${locale}/employees/${employeeId}`);
+  revalidatePath(`/${locale}/dashboard`);
+
+  return { ok: true };
 }

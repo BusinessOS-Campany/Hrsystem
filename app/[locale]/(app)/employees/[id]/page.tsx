@@ -7,6 +7,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
+  ReactivateEmployeeButton,
+  SuspendEmployeeButton,
+} from "@/components/employees/suspend-employee-button";
+import {
   formatDate,
   formatMoney,
   formatNumber,
@@ -132,6 +136,12 @@ export default async function EmployeeProfilePage({
   const displayName = localizedName(locale, name, nameAr);
   const canViewSalary = hasPermission(user, "employee.view_salary") || isSelf;
   const canViewDocuments = hasPermission(user, "employee.view_document") || isSelf;
+  const canSuspend =
+    hasPermission(user, "employee.update") &&
+    !isSelf &&
+    !["SUSPENDED", "TERMINATED", "RESIGNED", "RETIRED"].includes(employee.status);
+  const canReactivate =
+    hasPermission(user, "employee.update") && !isSelf && employee.status === "SUSPENDED";
 
   const totalFixed = employee.salaries
     .filter((salary) => !salary.effectiveTo)
@@ -155,6 +165,12 @@ export default async function EmployeeProfilePage({
               <Button asChild variant="outline" size="sm">
                 <Link href={`/employees/${employee.id}/edit`}>{common("edit")}</Link>
               </Button>
+            )}
+            {canSuspend && (
+              <SuspendEmployeeButton locale={locale} employeeId={employee.id} />
+            )}
+            {canReactivate && (
+              <ReactivateEmployeeButton locale={locale} employeeId={employee.id} />
             )}
           </div>
         }
