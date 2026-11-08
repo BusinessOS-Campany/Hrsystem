@@ -5,6 +5,7 @@ import { hasPermission, requirePermission } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LiveSearch } from "@/components/shared/live-search";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
   FormDialog,
@@ -38,10 +39,13 @@ import {
 
 export default async function AssetsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const { locale } = await params;
+  const query = await searchParams;
   setRequestLocale(locale);
   const user = await requirePermission("asset.view", locale);
   const t = await getTranslations({ locale, namespace: "assets" });
@@ -50,6 +54,7 @@ export default async function AssetsPage({
   const enums = await getTranslations({ locale, namespace: "enums" });
   const canManage = hasPermission(user, "asset.manage");
   const canViewAll = canManage || hasPermission(user, "employee.view_all");
+  const search = query.q?.trim();
 
   const [assets, employees] = await Promise.all([
     prisma.asset.findMany({
@@ -58,6 +63,19 @@ export default async function AssetsPage({
       ...(canViewAll
         ? {}
         : { assignments: { some: { employeeId: user.employeeId ?? "__none__", returnedAt: null } } }),
+      ...(search
+        ? {
+            OR: [
+              { assetTag: { contains: search, mode: "insensitive" as const } },
+              { name: { contains: search, mode: "insensitive" as const } },
+              { category: { contains: search, mode: "insensitive" as const } },
+              { brand: { contains: search, mode: "insensitive" as const } },
+              { model: { contains: search, mode: "insensitive" as const } },
+              { serialNumber: { contains: search, mode: "insensitive" as const } },
+              { notes: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
     },
     include: {
       assignments: {
@@ -240,6 +258,14 @@ export default async function AssetsPage({
           ) : undefined
         }
       />
+
+      <div className="rounded-lg border bg-card p-3">
+        <LiveSearch
+          initialValue={search}
+          placeholder={t("searchPlaceholder")}
+          ariaLabel={t("searchPlaceholder")}
+        />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

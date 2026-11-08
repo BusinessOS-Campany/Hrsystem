@@ -5,6 +5,7 @@ import { hasPermission, requirePermission } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LiveSearch } from "@/components/shared/live-search";
 import { formatMoney, formatNumber, localizedName } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,17 +28,34 @@ import { BriefcaseBusiness, Layers, Plus, Wallet } from "lucide-react";
 
 export default async function PositionsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const { locale } = await params;
+  const query = await searchParams;
   setRequestLocale(locale);
   const user = await requirePermission("position.view", locale);
   const t = await getTranslations({ locale, namespace: "positions" });
   const nav = await getTranslations({ locale, namespace: "nav" });
+  const search = query.q?.trim();
 
   const positions = await prisma.position.findMany({
-    where: { deletedAt: null },
+    where: {
+      deletedAt: null,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { nameAr: { contains: search, mode: "insensitive" as const } },
+              { code: { contains: search, mode: "insensitive" as const } },
+              { grade: { contains: search, mode: "insensitive" as const } },
+              { description: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
     include: {
       department: true,
       _count: { select: { employments: { where: { isCurrent: true } } } },
@@ -66,6 +84,14 @@ export default async function PositionsPage({
           ) : undefined
         }
       />
+
+      <div className="rounded-lg border bg-card p-3">
+        <LiveSearch
+          initialValue={search}
+          placeholder={t("searchPlaceholder")}
+          ariaLabel={t("searchPlaceholder")}
+        />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard

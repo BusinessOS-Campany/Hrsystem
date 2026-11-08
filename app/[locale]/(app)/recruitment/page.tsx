@@ -4,6 +4,7 @@ import { hasPermission, requirePermission } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LiveSearch } from "@/components/shared/live-search";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
   FormDialog,
@@ -47,10 +48,13 @@ const STAGES = ["APPLIED", "SCREENING", "INTERVIEW", "EVALUATION", "OFFER", "HIR
 
 export default async function RecruitmentPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const { locale } = await params;
+  const query = await searchParams;
   setRequestLocale(locale);
   const user = await requirePermission("recruitment.view", locale);
   const t = await getTranslations({ locale, namespace: "recruitment" });
@@ -59,6 +63,7 @@ export default async function RecruitmentPage({
   const enums = await getTranslations({ locale, namespace: "enums" });
   const canCreate = hasPermission(user, "recruitment.create");
   const canUpdate = hasPermission(user, "recruitment.update");
+  const search = query.q?.trim();
 
   const [
     vacancies,
@@ -71,6 +76,32 @@ export default async function RecruitmentPage({
     interviewers,
   ] = await Promise.all([
     prisma.jobVacancy.findMany({
+      where: search
+        ? {
+            OR: [
+              { title: { contains: search, mode: "insensitive" as const } },
+              { titleAr: { contains: search, mode: "insensitive" as const } },
+              { description: { contains: search, mode: "insensitive" as const } },
+              { requirements: { contains: search, mode: "insensitive" as const } },
+              {
+                department: {
+                  OR: [
+                    { name: { contains: search, mode: "insensitive" as const } },
+                    { nameAr: { contains: search, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+              {
+                position: {
+                  OR: [
+                    { name: { contains: search, mode: "insensitive" as const } },
+                    { nameAr: { contains: search, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            ],
+          }
+        : undefined,
       include: {
         department: true,
         position: true,
@@ -79,6 +110,30 @@ export default async function RecruitmentPage({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     }),
     prisma.candidateApplication.findMany({
+      where: search
+        ? {
+            OR: [
+              {
+                candidate: {
+                  OR: [
+                    { firstName: { contains: search, mode: "insensitive" as const } },
+                    { lastName: { contains: search, mode: "insensitive" as const } },
+                    { email: { contains: search, mode: "insensitive" as const } },
+                    { phone: { contains: search, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+              {
+                vacancy: {
+                  OR: [
+                    { title: { contains: search, mode: "insensitive" as const } },
+                    { titleAr: { contains: search, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            ],
+          }
+        : undefined,
       include: {
         candidate: true,
         vacancy: true,
@@ -490,6 +545,14 @@ export default async function RecruitmentPage({
           ) : undefined
         }
       />
+
+      <div className="rounded-lg border bg-card p-3">
+        <LiveSearch
+          initialValue={search}
+          placeholder={t("searchPlaceholder")}
+          ariaLabel={t("searchPlaceholder")}
+        />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

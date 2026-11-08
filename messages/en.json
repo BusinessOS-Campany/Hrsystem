@@ -360,6 +360,7 @@
   "departments": {
     "title": "Departments",
     "subtitle": "Organize the company into a clear reporting hierarchy.",
+    "searchPlaceholder": "Search departments by name or code…",
     "add": "Add department",
     "edit": "Edit department",
     "name": "Department name",
@@ -384,6 +385,7 @@
   "positions": {
     "title": "Positions",
     "subtitle": "Define job titles, grades and salary bands.",
+    "searchPlaceholder": "Search positions by name or code…",
     "add": "Add position",
     "edit": "Edit position",
     "name": "Position title",
@@ -477,6 +479,7 @@
   "leave": {
     "title": "Leave",
     "subtitle": "Request, review and balance employee leave.",
+    "searchPlaceholder": "Search by employee or request number…",
     "request": "Request leave",
     "newRequest": "New leave request",
     "myRequests": "My leave requests",
@@ -607,6 +610,7 @@
   "recruitment": {
     "title": "Recruitment",
     "subtitle": "Vacancies, candidates and a transparent hiring pipeline.",
+    "searchPlaceholder": "Search vacancies or candidates…",
     "vacancies": "Vacancies",
     "candidates": "Candidates",
     "applications": "Applications",
@@ -833,6 +837,7 @@
   "training": {
     "title": "Training",
     "subtitle": "Courses, enrollment and skills development.",
+    "searchPlaceholder": "Search by course title, code, or provider…",
     "courses": "Courses",
     "enrollments": "Enrollments",
     "addCourse": "Add course",
@@ -880,6 +885,7 @@
   "assets": {
     "title": "Assets",
     "subtitle": "Company equipment, assignments and returns.",
+    "searchPlaceholder": "Search by asset tag, name, or serial number…",
     "addAsset": "Add asset",
     "assetTag": "Asset tag",
     "category": "Category",
@@ -927,6 +933,7 @@
   "requests": {
     "title": "Requests",
     "subtitle": "HR service requests with a reusable approval chain.",
+    "searchPlaceholder": "Search by employee, subject, or request number…",
     "newRequest": "New request",
     "myRequests": "My requests",
     "allRequests": "All requests",
@@ -1440,5 +1447,37 @@
     "notActive": "This loan is not active.",
     "alreadyPaid": "This installment is already paid.",
     "selfApproval": "You cannot approve or record payment for your own loan."
+  },
+  "search": {
+    "title": "Search",
+    "subtitle": "Search employees, departments, positions, leave, payroll, requests, assets and more.",
+    "placeholder": "Search employees, departments, and more…",
+    "open": "Open search",
+    "close": "Close search",
+    "searching": "Searching…",
+    "pages": "Pages",
+    "employees": "Employees",
+    "departments": "Departments",
+    "positions": "Positions",
+    "leave": "Leave requests",
+    "payroll": "Payroll runs",
+    "requests": "Requests",
+    "assets": "Assets",
+    "users": "Users",
+    "recruitment": "Recruitment",
+    "training": "Courses",
+    "noResults": "No results found for “{query}”",
+    "noResultsHint": "Try a name, employee number, department, code, or reference number.",
+    "error": "Search is unavailable right now. Please try again.",
+    "viewAll": "View all results for “{query}”",
+    "resultsFor": "Results for “{query}”",
+    "resultCount": "{count, plural, =0 {No results} one {# result} other {# results}}",
+    "startTyping": "Start typing to search the whole system.",
+    "startTypingHint": "Search employees, departments, positions, leave, payroll, requests, assets and more.",
+    "hint": "Use arrow keys to navigate and Enter to open.",
+    "topResults": "Showing the top {count} matches",
+    "allResults": "All results",
+    "tryAgain": "Try again",
+    "searchButton": "Search"
   }
 }

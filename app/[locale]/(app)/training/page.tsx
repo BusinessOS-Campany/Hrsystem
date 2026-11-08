@@ -4,6 +4,7 @@ import { hasPermission, requirePermission } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LiveSearch } from "@/components/shared/live-search";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
   FormDialog,
@@ -38,10 +39,13 @@ import {
 
 export default async function TrainingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string }>;
 }) {
   const { locale } = await params;
+  const query = await searchParams;
   setRequestLocale(locale);
   const user = await requirePermission("training.view", locale);
   const t = await getTranslations({ locale, namespace: "training" });
@@ -50,9 +54,23 @@ export default async function TrainingPage({
   const enums = await getTranslations({ locale, namespace: "enums" });
   const canManage = hasPermission(user, "training.manage");
   const canViewAll = hasPermission(user, "employee.view_all") || canManage;
+  const search = query.q?.trim();
 
   const [courses, employees] = await Promise.all([
     prisma.trainingCourse.findMany({
+    where: search
+      ? {
+          OR: [
+            { code: { contains: search, mode: "insensitive" as const } },
+            { title: { contains: search, mode: "insensitive" as const } },
+            { titleAr: { contains: search, mode: "insensitive" as const } },
+            { description: { contains: search, mode: "insensitive" as const } },
+            { provider: { contains: search, mode: "insensitive" as const } },
+            { trainer: { contains: search, mode: "insensitive" as const } },
+            { category: { contains: search, mode: "insensitive" as const } },
+          ],
+        }
+      : undefined,
     include: {
       enrollments: {
         where: canViewAll ? {} : { employeeId: user.employeeId ?? "__none__" },
@@ -230,6 +248,14 @@ export default async function TrainingPage({
           ) : undefined
         }
       />
+
+      <div className="rounded-lg border bg-card p-3">
+        <LiveSearch
+          initialValue={search}
+          placeholder={t("searchPlaceholder")}
+          ariaLabel={t("searchPlaceholder")}
+        />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

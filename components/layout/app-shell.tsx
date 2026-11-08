@@ -2,15 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import { NAV_GROUPS, type NavIcon } from "@/lib/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
+import { NAV_GROUPS } from "@/lib/navigation";
 import { initials, localizedName } from "@/lib/format";
 import { logoutAction } from "@/lib/auth/actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -24,52 +23,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LocaleSwitcher } from "@/components/layout/locale-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { GlobalSearch } from "@/components/layout/global-search";
+import { NAV_ICONS } from "@/components/layout/nav-icons";
 import {
   Bell,
-  BookOpen,
-  BriefcaseBusiness,
-  Building2,
-  CalendarCheck,
-  CalendarDays,
   ChevronDown,
-  ClipboardList,
-  GraduationCap,
-  HandCoins,
-  LayoutDashboard,
-  Laptop,
   LogOut,
   Menu,
-  Search,
   Settings,
-  ShieldCheck,
-  Target,
-  UserCog,
   UserRound,
-  Users,
-  Wallet,
 } from "lucide-react";
-
-const ICONS: Record<NavIcon, React.ComponentType<{ className?: string }>> = {
-  dashboard: LayoutDashboard,
-  employees: Users,
-  departments: Building2,
-  positions: BriefcaseBusiness,
-  attendance: CalendarCheck,
-  leave: CalendarDays,
-  payroll: Wallet,
-  loans: HandCoins,
-  recruitment: UserRound,
-  onboarding: ClipboardList,
-  offboarding: LogOut,
-  performance: Target,
-  training: GraduationCap,
-  assets: Laptop,
-  requests: ClipboardList,
-  reports: BookOpen,
-  users: UserCog,
-  settings: Settings,
-  audit: ShieldCheck,
-};
 
 type ShellUser = {
   name: string;
@@ -104,9 +67,7 @@ export function AppShell({
   const locale = useLocale();
   const t = useTranslations();
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const [isLoggingOut, startLogout] = useTransition();
 
   const displayName = localizedName(locale, user.name, user.nameAr);
@@ -122,12 +83,6 @@ export function AppShell({
 
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
-  }
-
-  function submitSearch(event: React.FormEvent) {
-    event.preventDefault();
-    const value = query.trim();
-    router.push(value ? `/employees?q=${encodeURIComponent(value)}` : "/employees");
   }
 
   function logout() {
@@ -158,7 +113,7 @@ export function AppShell({
                 {t(`nav.${group.key}`)}
               </p>
               {group.items.map((item) => {
-                const Icon = ICONS[item.icon];
+                const Icon = NAV_ICONS[item.icon];
                 const active = isActive(item.href);
                 return (
                   <Link
@@ -227,16 +182,7 @@ export function AppShell({
             <Menu className="size-5" />
           </Button>
 
-          <form onSubmit={submitSearch} className="relative hidden max-w-sm flex-1 sm:block">
-            <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("employees.searchPlaceholder")}
-              className="h-9 bg-muted/40 ps-8"
-              aria-label={t("common.search")}
-            />
-          </form>
+          <GlobalSearch permissions={user.permissions} />
 
           <div className="ms-auto flex items-center gap-0.5">
             <DropdownMenu>

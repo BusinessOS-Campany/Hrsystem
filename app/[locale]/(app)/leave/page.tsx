@@ -5,6 +5,7 @@ import { hasPermission, requirePermission } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LiveSearch } from "@/components/shared/live-search";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { LeaveRequestForm } from "@/components/leave/leave-request-form";
 import { reviewLeaveFormAction } from "./actions";
@@ -42,7 +43,7 @@ export default async function LeavePage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; q?: string }>;
 }) {
   const { locale } = await params;
   const query = await searchParams;
@@ -68,6 +69,7 @@ export default async function LeavePage({
     : [];
 
   const statusFilter = query.status;
+  const search = query.q?.trim();
   const [leaveTypes, balances, requests, pendingCount, approvedDays] =
     await Promise.all([
       prisma.leaveType.findMany({
@@ -88,6 +90,32 @@ export default async function LeavePage({
             : { employeeId: { in: employeeIds.length ? employeeIds : ["__none__"] } }),
           ...(statusFilter
             ? { status: statusFilter as never }
+            : {}),
+          ...(search
+            ? {
+                OR: [
+                  { requestNo: { contains: search, mode: "insensitive" as const } },
+                  { reason: { contains: search, mode: "insensitive" as const } },
+                  {
+                    employee: {
+                      OR: [
+                        { firstName: { contains: search, mode: "insensitive" as const } },
+                        { lastName: { contains: search, mode: "insensitive" as const } },
+                        { employeeNo: { contains: search, mode: "insensitive" as const } },
+                      ],
+                    },
+                  },
+                  {
+                    leaveType: {
+                      OR: [
+                        { name: { contains: search, mode: "insensitive" as const } },
+                        { nameAr: { contains: search, mode: "insensitive" as const } },
+                        { code: { contains: search, mode: "insensitive" as const } },
+                      ],
+                    },
+                  },
+                ],
+              }
             : {}),
         },
         include: {
@@ -204,6 +232,12 @@ export default async function LeavePage({
               <CardDescription>{t("subtitle")}</CardDescription>
             </div>
             <form className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+              <LiveSearch
+                className="w-full sm:w-44"
+                initialValue={search}
+                placeholder={t("searchPlaceholder")}
+                ariaLabel={t("searchPlaceholder")}
+              />
               <select
                 name="status"
                 defaultValue={statusFilter ?? ""}

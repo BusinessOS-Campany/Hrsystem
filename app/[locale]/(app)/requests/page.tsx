@@ -5,6 +5,7 @@ import { hasPermission, requirePermission } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LiveSearch } from "@/components/shared/live-search";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { RequestForm } from "@/components/requests/request-form";
 import { reviewRequestFormAction } from "./actions";
@@ -32,7 +33,7 @@ export default async function RequestsPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ status?: string; type?: string }>;
+  searchParams: Promise<{ status?: string; type?: string; q?: string }>;
 }) {
   const { locale } = await params;
   const query = await searchParams;
@@ -55,6 +56,7 @@ export default async function RequestsPage({
   const employeeIds = user.employeeId
     ? [user.employeeId, ...reports.map((report) => report.id)]
     : [];
+  const search = query.q?.trim();
 
   const requests = await prisma.employeeRequest.findMany({
     where: {
@@ -63,6 +65,24 @@ export default async function RequestsPage({
         : { employeeId: { in: employeeIds.length ? employeeIds : ["__none__"] } }),
       ...(query.status ? { status: query.status as never } : {}),
       ...(query.type ? { type: query.type as never } : {}),
+      ...(search
+        ? {
+            OR: [
+              { requestNo: { contains: search, mode: "insensitive" as const } },
+              { subject: { contains: search, mode: "insensitive" as const } },
+              { details: { contains: search, mode: "insensitive" as const } },
+              {
+                employee: {
+                  OR: [
+                    { firstName: { contains: search, mode: "insensitive" as const } },
+                    { lastName: { contains: search, mode: "insensitive" as const } },
+                    { employeeNo: { contains: search, mode: "insensitive" as const } },
+                  ],
+                },
+              },
+            ],
+          }
+        : {}),
     },
     include: {
       employee: true,
@@ -155,6 +175,12 @@ export default async function RequestsPage({
               <CardDescription>{t("workflow")}</CardDescription>
             </div>
             <form className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+              <LiveSearch
+                className="w-full sm:w-48"
+                initialValue={search}
+                placeholder={t("searchPlaceholder")}
+                ariaLabel={t("searchPlaceholder")}
+              />
               <select
                 name="type"
                 defaultValue={query.type ?? ""}

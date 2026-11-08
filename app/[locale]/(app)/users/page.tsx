@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LiveSearch } from "@/components/shared/live-search";
 import {
   SettingsDialog,
   type SettingsField,
@@ -13,7 +14,6 @@ import {
 import { formatDate, formatNumber, localizedName } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -26,7 +26,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   ChevronLeft,
   ChevronRight,
-  Search,
   UserCheck,
   UserCog,
   UserX,
@@ -301,15 +300,12 @@ export default async function UsersPage({
       </div>
 
       <form className="flex flex-col gap-2 rounded-lg border bg-card p-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            name="q"
-            defaultValue={search}
-            placeholder={t("searchPlaceholder")}
-            className="ps-8"
-          />
-        </div>
+        <LiveSearch
+          className="flex-1"
+          initialValue={search}
+          placeholder={t("searchPlaceholder")}
+          ariaLabel={t("searchPlaceholder")}
+        />
         <select
           name="role"
           defaultValue={query.role ?? ""}
