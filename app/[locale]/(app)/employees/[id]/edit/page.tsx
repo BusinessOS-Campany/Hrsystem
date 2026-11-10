@@ -22,20 +22,40 @@ export default async function EditEmployeePage({
         employments: { where: { isCurrent: true }, take: 1 },
       },
     }),
-    prisma.branch.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.department.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
-    prisma.position.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } }),
+    prisma.branch.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, nameAr: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.department.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, nameAr: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.position.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, nameAr: true, departmentId: true },
+      orderBy: { name: "asc" },
+    }),
     prisma.employee.findMany({
       where: {
         deletedAt: null,
         id: { not: id },
         status: { in: ["ACTIVE", "PROBATION", "ON_LEAVE"] },
       },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        firstNameAr: true,
+        lastNameAr: true,
+      },
       orderBy: { firstName: "asc" },
       take: 300,
     }),
     prisma.role.findMany({
       where: { code: { notIn: ["SUPER_ADMIN"] } },
+      select: { code: true, name: true, nameAr: true },
       orderBy: { name: "asc" },
     }),
   ]);

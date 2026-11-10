@@ -2,7 +2,8 @@
 // PostgreSQL + Prisma. Multi-company ready, soft-deletion where records are historical.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -614,6 +615,7 @@ model Employee {
   @@index([status])
   @@index([managerId])
   @@index([deletedAt])
+  @@index([deletedAt, status, employeeNo])
   @@map("employees")
 }
 
@@ -651,6 +653,8 @@ model Employment {
   @@index([employeeId, isCurrent])
   @@index([departmentId])
   @@index([status])
+  @@index([isCurrent, departmentId])
+  @@index([isCurrent, contractEnd])
   @@map("employments")
 }
 
@@ -909,6 +913,7 @@ model LeaveRequest {
 
   @@index([employeeId, status])
   @@index([status, createdAt])
+  @@index([status, startDate])
   @@map("leave_requests")
 }
 
@@ -997,6 +1002,7 @@ model PayrollRun {
   items      PayrollItem[]
 
   @@index([periodId, status])
+  @@index([createdAt])
   @@map("payroll_runs")
 }
 
@@ -1143,6 +1149,7 @@ model JobVacancy {
   applications CandidateApplication[]
 
   @@index([status])
+  @@index([status, createdAt])
   @@map("job_vacancies")
 }
 
@@ -1185,6 +1192,7 @@ model CandidateApplication {
 
   @@unique([vacancyId, candidateId])
   @@index([stage, status])
+  @@index([appliedAt])
   @@map("candidate_applications")
 }
 
@@ -1415,6 +1423,7 @@ model TrainingCourse {
   enrollments TrainingEnrollment[]
 
   @@unique([companyId, code])
+  @@index([startDate, createdAt])
   @@map("training_courses")
 }
 
@@ -1535,6 +1544,7 @@ model EmployeeRequest {
   approvalSteps ApprovalStep[]
 
   @@index([employeeId, status])
+  @@index([status, createdAt])
   @@map("employee_requests")
 }
 

@@ -52,14 +52,43 @@ export default async function PayrollPage({
     canViewAll
       ? prisma.payrollRun.findMany({
           orderBy: [{ period: { startDate: "desc" } }, { createdAt: "desc" }],
-          include: { period: true, _count: { select: { items: true } } },
+          select: {
+            id: true,
+            runNo: true,
+            status: true,
+            totalGross: true,
+            totalDeductions: true,
+            totalNet: true,
+            employeeCount: true,
+            period: {
+              select: {
+                name: true,
+                payDate: true,
+              },
+            },
+            _count: { select: { items: true } },
+          },
           take: 24,
         })
       : Promise.resolve([]),
     user.employeeId && canViewSelf
       ? prisma.payrollItem.findMany({
           where: { employeeId: user.employeeId },
-          include: { run: { include: { period: true } } },
+          select: {
+            id: true,
+            basicSalary: true,
+            grossSalary: true,
+            totalDeductions: true,
+            netSalary: true,
+            currency: true,
+            run: {
+              select: {
+                runNo: true,
+                status: true,
+                period: { select: { name: true } },
+              },
+            },
+          },
           orderBy: { createdAt: "desc" },
           take: 12,
         })
@@ -67,7 +96,14 @@ export default async function PayrollPage({
     prisma.payrollPeriod.findMany({
       orderBy: [{ year: "desc" }, { month: "desc" }],
       take: 6,
-      include: { _count: { select: { runs: true } } },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+        _count: { select: { runs: true } },
+      },
     }),
     prisma.salaryComponent.findMany({
       where: { isActive: true },

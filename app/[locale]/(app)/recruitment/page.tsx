@@ -102,9 +102,22 @@ export default async function RecruitmentPage({
             ],
           }
         : undefined,
-      include: {
-        department: true,
-        position: true,
+      select: {
+        id: true,
+        title: true,
+        titleAr: true,
+        description: true,
+        requirements: true,
+        departmentId: true,
+        positionId: true,
+        status: true,
+        openings: true,
+        salaryMin: true,
+        salaryMax: true,
+        currency: true,
+        closingDate: true,
+        department: { select: { name: true, nameAr: true } },
+        position: { select: { name: true, nameAr: true } },
         _count: { select: { applications: true } },
       },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -134,36 +147,78 @@ export default async function RecruitmentPage({
             ],
           }
         : undefined,
-      include: {
-        candidate: true,
-        vacancy: true,
-        offer: true,
+      select: {
+        id: true,
+        stage: true,
+        status: true,
+        appliedAt: true,
+        rating: true,
+        notes: true,
+        candidate: {
+          select: { id: true, firstName: true, lastName: true, email: true },
+        },
+        vacancy: { select: { id: true, title: true, titleAr: true } },
+        offer: {
+          select: {
+            id: true,
+            salary: true,
+            currency: true,
+            startDate: true,
+            expiresAt: true,
+            status: true,
+          },
+        },
       },
       orderBy: { appliedAt: "desc" },
       take: 80,
     }),
     prisma.interview.findMany({
       where: { scheduledAt: { gte: new Date() }, status: "SCHEDULED" },
-      include: {
-        application: { include: { candidate: true, vacancy: true } },
-        interviewer: true,
+      select: {
+        id: true,
+        scheduledAt: true,
+        application: {
+          select: {
+            candidate: { select: { firstName: true, lastName: true } },
+            vacancy: { select: { title: true, titleAr: true } },
+          },
+        },
       },
       orderBy: { scheduledAt: "asc" },
       take: 8,
     }),
     prisma.jobOffer.findMany({
-      include: { application: { include: { candidate: true, vacancy: true } } },
+      select: {
+        id: true,
+        salary: true,
+        currency: true,
+        startDate: true,
+        status: true,
+        application: {
+          select: {
+            candidate: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
       take: 8,
     }),
     prisma.candidate.count(),
     prisma.department.findMany({
       where: { deletedAt: null, isActive: true },
+      select: { id: true, name: true, nameAr: true },
       orderBy: { name: "asc" },
     }),
     prisma.position.findMany({
       where: { deletedAt: null, isActive: true },
-      include: { department: true },
+      select: {
+        id: true,
+        name: true,
+        nameAr: true,
+        code: true,
+        departmentId: true,
+        department: { select: { name: true, nameAr: true } },
+      },
       orderBy: [{ departmentId: "asc" }, { name: "asc" }],
     }),
     prisma.user.findMany({

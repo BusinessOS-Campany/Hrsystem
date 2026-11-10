@@ -80,7 +80,18 @@ export default async function AssetsPage({
     include: {
       assignments: {
         where: { returnedAt: null },
-        include: { employee: true },
+        select: {
+          employeeId: true,
+          employee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              firstNameAr: true,
+              lastNameAr: true,
+            },
+          },
+        },
         take: 1,
       },
     },

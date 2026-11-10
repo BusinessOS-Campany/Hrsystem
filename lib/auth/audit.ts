@@ -24,8 +24,14 @@ type AuditInput = {
   userAgent?: string | null;
 };
 
+type AuditClient = {
+  auditLog: {
+    create(args: Prisma.AuditLogCreateArgs): PromiseLike<unknown>;
+  };
+};
+
 /** Audit rows are append-only. Never update or delete them from the app. */
-export async function writeAudit(input: AuditInput, tx?: Prisma.TransactionClient) {
+export async function writeAudit(input: AuditInput, tx?: AuditClient) {
   const client = tx ?? prisma;
   try {
     await client.auditLog.create({

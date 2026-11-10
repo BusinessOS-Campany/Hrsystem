@@ -84,9 +84,32 @@ export default async function RequestsPage({
           }
         : {}),
     },
-    include: {
-      employee: true,
-      approvalSteps: { orderBy: { stepOrder: "asc" }, include: { approver: true } },
+    select: {
+      id: true,
+      employeeId: true,
+      requestNo: true,
+      type: true,
+      subject: true,
+      status: true,
+      amount: true,
+      createdAt: true,
+      employee: {
+        select: {
+          firstName: true,
+          lastName: true,
+          firstNameAr: true,
+          lastNameAr: true,
+        },
+      },
+      approvalSteps: {
+        select: {
+          stepOrder: true,
+          status: true,
+          approverId: true,
+          roleId: true,
+        },
+        orderBy: { stepOrder: "asc" },
+      },
     },
     orderBy: { createdAt: "desc" },
     take: 100,

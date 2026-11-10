@@ -23,14 +23,30 @@ export type AuthUser = {
   sessionId: string;
 };
 
-const userInclude = {
+const sessionSelect = {
+  id: true,
+  revokedAt: true,
+  expiresAt: true,
   user: {
-    include: {
+    select: {
+      id: true,
+      name: true,
+      nameAr: true,
+      email: true,
+      username: true,
+      employeeId: true,
+      isActive: true,
+      deletedAt: true,
       roles: {
-        include: {
+        select: {
           role: {
-            include: {
-              permissions: { include: { permission: true } },
+            select: {
+              code: true,
+              name: true,
+              nameAr: true,
+              permissions: {
+                select: { permission: { select: { code: true } } },
+              },
             },
           },
         },
@@ -46,7 +62,7 @@ export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
 
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: userInclude,
+    select: sessionSelect,
   });
 
   if (

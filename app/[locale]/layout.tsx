@@ -28,6 +28,27 @@ const mono = Geist_Mono({
   display: "swap",
 });
 
+// Only these namespaces are consumed by client components. Server components
+// read the full catalogue on the server; shipping the rest to the browser
+// would add tens of kilobytes to every response.
+const CLIENT_MESSAGE_NAMESPACES = [
+  "common",
+  "nav",
+  "auth",
+  "employees",
+  "departments",
+  "positions",
+  "attendance",
+  "leave",
+  "payroll",
+  "settings",
+  "notifications",
+  "requests",
+  "enums",
+  "search",
+  "errors",
+] as const;
+
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#F4F5F7" },
@@ -76,6 +97,12 @@ export default async function LocaleLayout({
 
   setRequestLocale(locale);
   const messages = await getMessages();
+  const clientMessages = Object.fromEntries(
+    CLIENT_MESSAGE_NAMESPACES.map((namespace) => [
+      namespace,
+      messages[namespace],
+    ]),
+  ) as typeof messages;
   const dir = locale === "ar" ? "rtl" : "ltr";
 
   return (
@@ -92,7 +119,7 @@ export default async function LocaleLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <NextIntlClientProvider messages={messages} locale={locale}>
+          <NextIntlClientProvider messages={clientMessages} locale={locale}>
             <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
             <Toaster richColors closeButton position="top-center" />
           </NextIntlClientProvider>

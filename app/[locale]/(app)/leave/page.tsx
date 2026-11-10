@@ -79,7 +79,14 @@ export default async function LeavePage({
       user.employeeId
         ? prisma.leaveBalance.findMany({
             where: { employeeId: user.employeeId, year },
-            include: { leaveType: true },
+            select: {
+              id: true,
+              entitledDays: true,
+              carriedDays: true,
+              usedDays: true,
+              pendingDays: true,
+              leaveType: { select: { code: true, name: true, nameAr: true } },
+            },
             orderBy: { leaveType: { name: "asc" } },
           })
         : Promise.resolve([]),
@@ -118,11 +125,24 @@ export default async function LeavePage({
               }
             : {}),
         },
-        include: {
-          employee: true,
-          leaveType: true,
-          manager: true,
-          approvedBy: true,
+        select: {
+          id: true,
+          requestNo: true,
+          employeeId: true,
+          managerId: true,
+          startDate: true,
+          endDate: true,
+          days: true,
+          status: true,
+          employee: {
+            select: {
+              firstName: true,
+              lastName: true,
+              firstNameAr: true,
+              lastNameAr: true,
+            },
+          },
+          leaveType: { select: { name: true, nameAr: true } },
         },
         orderBy: [{ createdAt: "desc" }],
         take: 100,

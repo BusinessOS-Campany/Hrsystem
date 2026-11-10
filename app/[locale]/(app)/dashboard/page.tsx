@@ -11,7 +11,7 @@ import {
   AttendanceTrendChart,
   DepartmentChart,
   LeaveTypeChart,
-} from "@/components/dashboard/charts";
+} from "@/components/dashboard/lazy-charts";
 import {
   addDays,
   dateKey,
@@ -66,43 +66,52 @@ export default async function DashboardPage({
   const in60Days = addDays(today, 60);
   const yearStart = new Date(Date.UTC(today.getUTCFullYear(), 0, 1));
 
+  const activeStatuses = ["ACTIVE", "PROBATION", "ON_LEAVE"] as const;
+  const activeStatusList = [...activeStatuses];
+  const onLeaveWhere = {
+    status: "APPROVED" as const,
+    startDate: { lte: today },
+    endDate: { gte: today },
+  };
+
   const [
-    employees,
+    statusCounts,
+    newHires,
     attendanceToday,
-    onLeaveToday,
+    onLeaveCount,
+    onLeavePreview,
     pendingLeave,
     pendingRequests,
     openVacancies,
     expiringContracts,
-    latestRun,
     payrollRuns,
     attendanceRows,
-    approvedLeave,
+    leaveTotals,
+    leaveTypes,
     auditLogs,
+    departmentCounts,
+    departments,
+    birthdaysRaw,
   ] = await Promise.all([
-    prisma.employee.findMany({
+    prisma.employee.groupBy({
+      by: ["status"],
       where: { deletedAt: null },
-      include: {
-        employments: {
-          where: { isCurrent: true },
-          include: { department: true, position: true },
-          take: 1,
-        },
-      },
+      _count: { _all: true },
+    }),
+    prisma.employee.count({
+      where: { deletedAt: null, hireDate: { gte: monthStart } },
     }),
     prisma.attendance.groupBy({
       by: ["status"],
       where: { date: today },
       _count: { _all: true },
     }),
+    prisma.leaveRequest.count({ where: onLeaveWhere }),
     prisma.leaveRequest.findMany({
-      where: {
-        status: "APPROVED",
-        startDate: { lte: today },
-        endDate: { gte: today },
-      },
-      include: { employee: true, leaveType: true },
+      where: onLeaveWhere,
+      select: { employee: { select: { firstName: true } } },
       orderBy: { startDate: "asc" },
+      take: 2,
     }),
     prisma.leaveRequest.count({
       where: { status: { in: ["PENDING_MANAGER", "PENDING_HR"] } },
@@ -114,40 +123,108 @@ export default async function DashboardPage({
         isCurrent: true,
         contractEnd: { gte: today, lte: in60Days },
       },
-      include: { employee: true, department: true },
+      select: {
+        id: true,
+        contractEnd: true,
+        employee: { select: { firstName: true, lastName: true } },
+      },
       orderBy: { contractEnd: "asc" },
       take: 6,
     }),
-    prisma.payrollRun.findFirst({
-      orderBy: [{ period: { startDate: "desc" } }, { createdAt: "desc" }],
-      include: { period: true },
-    }),
     prisma.payrollRun.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { period: true },
+      orderBy: [{ period: { startDate: "desc" } }, { createdAt: "desc" }],
+      select: {
+        employeeCount: true,
+        totalGross: true,
+        totalNet: true,
+        status: true,
+        period: { select: { name: true } },
+      },
+      take: 2,
+    }),
+    prisma.attendance.groupBy({
+      by: ["date", "status"],
+      where: { date: { gte: addDays(today, -21) } },
+      _count: { _all: true },
+      orderBy: { date: "asc" },
+    }),
+    prisma.leaveRequest.groupBy({
+      by: ["leaveTypeId"],
+      where: { status: "APPROVED", startDate: { gte: yearStart } },
+      _sum: { days: true },
+      orderBy: { _sum: { days: "desc" } },
       take: 6,
     }),
-    prisma.attendance.findMany({
-      where: { date: { gte: addDays(today, -21) } },
-      select: { date: true, status: true },
-    }),
-    prisma.leaveRequest.findMany({
-      where: { status: "APPROVED", startDate: { gte: yearStart } },
-      include: { leaveType: true },
+    prisma.leaveType.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, nameAr: true, color: true },
     }),
     prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 6,
-      include: { user: { select: { name: true, nameAr: true } } },
+      select: {
+        id: true,
+        action: true,
+        entity: true,
+        createdAt: true,
+        user: { select: { name: true, nameAr: true } },
+      },
     }),
+    prisma.employment.groupBy({
+      by: ["departmentId"],
+      where: {
+        isCurrent: true,
+        employee: { deletedAt: null, status: { in: activeStatusList } },
+      },
+      _count: { _all: true },
+      orderBy: { _count: { departmentId: "desc" } },
+      take: 7,
+    }),
+    prisma.department.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, nameAr: true },
+    }),
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        firstName: string;
+        lastName: string;
+        firstNameAr: string | null;
+        lastNameAr: string | null;
+        bmonth: number;
+        bday: number;
+      }>
+    >`
+      WITH active AS (
+        SELECT id, "firstName", "lastName", "firstNameAr", "lastNameAr",
+          EXTRACT(MONTH FROM "dateOfBirth")::int AS bmonth,
+          EXTRACT(DAY FROM "dateOfBirth")::int AS bday,
+          to_char("dateOfBirth", 'MM-DD') AS bmd
+        FROM employees
+        WHERE "deletedAt" IS NULL
+          AND status IN ('ACTIVE', 'PROBATION', 'ON_LEAVE')
+          AND "dateOfBirth" IS NOT NULL
+      ), bounds AS (
+        SELECT to_char(CURRENT_DATE, 'MM-DD') AS today_md,
+               to_char(CURRENT_DATE + INTERVAL '30 days', 'MM-DD') AS end_md
+      )
+      SELECT a.id, a."firstName", a."lastName", a."firstNameAr", a."lastNameAr",
+             a.bmonth, a.bday
+      FROM active a CROSS JOIN bounds b
+      WHERE (b.today_md <= b.end_md AND a.bmd BETWEEN b.today_md AND b.end_md)
+         OR (b.today_md > b.end_md AND (a.bmd >= b.today_md OR a.bmd <= b.end_md))
+      ORDER BY CASE WHEN a.bmd >= b.today_md THEN 0 ELSE 1 END, a.bmd
+      LIMIT 4
+    `,
   ]);
 
-  const activeStatuses = ["ACTIVE", "PROBATION", "ON_LEAVE"];
-  const activeEmployees = employees.filter((employee) =>
-    activeStatuses.includes(employee.status),
+  const statusCountMap = Object.fromEntries(
+    statusCounts.map((row) => [row.status, row._count._all]),
+  ) as Record<string, number>;
+  const headcount = activeStatuses.reduce(
+    (sum, status) => sum + (statusCountMap[status] ?? 0),
+    0,
   );
-  const headcount = activeEmployees.length;
-  const newHires = employees.filter((employee) => employee.hireDate >= monthStart).length;
 
   const attendanceCounts = Object.fromEntries(
     attendanceToday.map((row) => [row.status, row._count._all]),
@@ -158,33 +235,26 @@ export default async function DashboardPage({
   const attendanceTotal = present + late + absent + (attendanceCounts.ON_LEAVE ?? 0);
   const presentRate = attendanceTotal > 0 ? Math.round(((present + late) / attendanceTotal) * 100) : 0;
 
-  const departmentCounts = new Map<string, { name: string; nameAr: string; value: number }>();
-  for (const employee of activeEmployees) {
-    const employment = employee.employments[0];
-    if (!employment) continue;
-    const current = departmentCounts.get(employment.departmentId) ?? {
-      name: employment.department.name,
-      nameAr: employment.department.nameAr,
-      value: 0,
-    };
-    current.value += 1;
-    departmentCounts.set(employment.departmentId, current);
-  }
-  const departmentStats = [...departmentCounts.values()]
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 7)
-    .map((department) => ({
+  const departmentMap = new Map(
+    departments.map((department) => [department.id, department]),
+  );
+  const departmentStats = departmentCounts.flatMap((row) => {
+    const department = departmentMap.get(row.departmentId);
+    if (!department) return [];
+    return [{
       name: localizedName(locale, department.name, department.nameAr),
-      value: department.value,
-    }));
+      value: row._count._all,
+    }];
+  });
 
   const trendMap = new Map<string, { present: number; late: number; absent: number }>();
   for (const row of attendanceRows) {
     const key = dateKey(row.date);
     const bucket = trendMap.get(key) ?? { present: 0, late: 0, absent: 0 };
-    if (row.status === "PRESENT") bucket.present += 1;
-    if (row.status === "LATE") bucket.late += 1;
-    if (row.status === "ABSENT") bucket.absent += 1;
+    const count = row._count._all;
+    if (row.status === "PRESENT") bucket.present += count;
+    if (row.status === "LATE") bucket.late += count;
+    if (row.status === "ABSENT") bucket.absent += count;
     trendMap.set(key, bucket);
   }
   const attendanceTrend = [...trendMap.entries()]
@@ -199,43 +269,38 @@ export default async function DashboardPage({
       ...values,
     }));
 
-  const leaveTotals = new Map<string, { name: string; nameAr: string; value: number; color: string }>();
-  for (const request of approvedLeave) {
-    const current = leaveTotals.get(request.leaveTypeId) ?? {
-      name: request.leaveType.name,
-      nameAr: request.leaveType.nameAr,
-      value: 0,
-      color: request.leaveType.color ?? "#2563eb",
+  const leaveTypeMap = new Map(leaveTypes.map((type) => [type.id, type]));
+  const leaveByType = leaveTotals.flatMap((row) => {
+    const type = leaveTypeMap.get(row.leaveTypeId);
+    if (!type) return [];
+    return [{
+      name: localizedName(locale, type.name, type.nameAr),
+      value: Number(row._sum.days ?? 0),
+      color: type.color ?? "#2563eb",
+    }];
+  });
+
+  const birthdays = birthdaysRaw.map((row) => {
+    let next = new Date(Date.UTC(today.getUTCFullYear(), row.bmonth - 1, row.bday));
+    if (next < today) {
+      next = new Date(Date.UTC(today.getUTCFullYear() + 1, row.bmonth - 1, row.bday));
+    }
+    return {
+      employee: {
+        id: row.id,
+        firstName: row.firstName,
+        lastName: row.lastName,
+        firstNameAr: row.firstNameAr,
+        lastNameAr: row.lastNameAr,
+      },
+      next,
     };
-    current.value += Number(request.days);
-    leaveTotals.set(request.leaveTypeId, current);
-  }
-  const leaveByType = [...leaveTotals.values()]
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6)
-    .map((item) => ({
-      name: localizedName(locale, item.name, item.nameAr),
-      value: item.value,
-      color: item.color,
-    }));
+  });
 
-  const birthdays = activeEmployees
-    .filter((employee) => employee.dateOfBirth)
-    .map((employee) => {
-      const dob = employee.dateOfBirth!;
-      let next = new Date(Date.UTC(today.getUTCFullYear(), dob.getUTCMonth(), dob.getUTCDate()));
-      if (next < today) {
-        next = new Date(Date.UTC(today.getUTCFullYear() + 1, dob.getUTCMonth(), dob.getUTCDate()));
-      }
-      return { employee, next };
-    })
-    .filter((item) => item.next <= addDays(today, 30))
-    .sort((a, b) => a.next.getTime() - b.next.getTime())
-    .slice(0, 4);
-
+  const latestRun = payrollRuns[0] ?? null;
+  const previousRun = payrollRuns[1] ?? null;
   const latestNet = Number(latestRun?.totalNet ?? 0);
   const latestGross = Number(latestRun?.totalGross ?? 0);
-  const previousRun = payrollRuns.find((run) => run.id !== latestRun?.id);
   const previousNet = Number(previousRun?.totalNet ?? 0);
   const payrollDelta =
     previousNet > 0 ? Math.round(((latestNet - previousNet) / previousNet) * 100) : 0;
@@ -278,7 +343,7 @@ export default async function DashboardPage({
         <StatCard
           label={t("totalEmployees")}
           value={formatNumber(headcount, locale)}
-          hint={`${formatNumber(activeEmployees.length, locale)} ${common("active")}`}
+          hint={`${formatNumber(headcount, locale)} ${common("active")}`}
           icon={<Users className="size-5" />}
           tone="info"
         />
@@ -291,9 +356,8 @@ export default async function DashboardPage({
         />
         <StatCard
           label={t("onLeave")}
-          value={formatNumber(onLeaveToday.length, locale)}
-          hint={onLeaveToday
-            .slice(0, 2)
+          value={formatNumber(onLeaveCount, locale)}
+          hint={onLeavePreview
             .map((request) => request.employee.firstName)
             .join("، ")}
           icon={<CalendarDays className="size-5" />}

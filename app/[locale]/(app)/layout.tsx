@@ -14,14 +14,33 @@ export default async function AuthenticatedLayout({
   setRequestLocale(locale);
   const user = await requireAuth(locale);
 
-  const [notifications, unreadCount] = await Promise.all([
-    prisma.notification.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-    prisma.notification.count({ where: { userId: user.id, isRead: false } }),
-  ]);
+  // One round trip for both the latest notifications and the unread badge.
+  // A window count sees every unread row before LIMIT is applied.
+  const notificationRows = await prisma.$queryRaw<
+    Array<{
+      id: string;
+      title: string;
+      titleAr: string | null;
+      message: string;
+      messageAr: string | null;
+      link: string | null;
+      isRead: boolean;
+      createdAt: Date;
+      unreadCount: bigint | number;
+    }>
+  >`
+    SELECT id, title, "titleAr", message, "messageAr", link, "isRead", "createdAt",
+           COUNT(*) FILTER (WHERE NOT "isRead") OVER () AS "unreadCount"
+    FROM public.notifications
+    WHERE "userId" = ${user.id}
+    ORDER BY "createdAt" DESC
+    LIMIT 8
+  `;
+  const unreadCount = Number(notificationRows[0]?.unreadCount ?? 0);
+  const notifications = notificationRows.map((notification) => ({
+    ...notification,
+    createdAt: notification.createdAt.toISOString(),
+  }));
 
   return (
     <AppShell
@@ -41,7 +60,7 @@ export default async function AuthenticatedLayout({
         messageAr: notification.messageAr,
         link: notification.link,
         isRead: notification.isRead,
-        createdAt: notification.createdAt.toISOString(),
+        createdAt: notification.createdAt,
       }))}
     >
       {children}

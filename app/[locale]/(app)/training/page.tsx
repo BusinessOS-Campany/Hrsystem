@@ -74,7 +74,23 @@ export default async function TrainingPage({
     include: {
       enrollments: {
         where: canViewAll ? {} : { employeeId: user.employeeId ?? "__none__" },
-        include: { employee: true },
+        select: {
+          id: true,
+          employeeId: true,
+          status: true,
+          score: true,
+          feedback: true,
+          certificateUrl: true,
+          employee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              firstNameAr: true,
+              lastNameAr: true,
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
       _count: { select: { enrollments: true } },

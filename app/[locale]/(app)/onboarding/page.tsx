@@ -38,18 +38,36 @@ export default async function OnboardingPage({
 
   const [onboardings, eligibleEmployees] = await Promise.all([
     prisma.onboarding.findMany({
-    include: {
+    select: {
+      id: true,
+      employeeId: true,
+      status: true,
+      progress: true,
+      startDate: true,
       employee: {
-        include: {
+        select: {
+          firstName: true,
+          lastName: true,
+          firstNameAr: true,
+          lastNameAr: true,
           employments: {
             where: { isCurrent: true },
-            include: { department: true, position: true },
+            select: {
+              position: { select: { name: true, nameAr: true } },
+            },
             take: 1,
           },
         },
       },
       tasks: {
-        include: { assignee: true },
+        select: {
+          id: true,
+          title: true,
+          titleAr: true,
+          category: true,
+          completedAt: true,
+          dueDate: true,
+        },
         orderBy: [{ sortOrder: "asc" }],
       },
     },

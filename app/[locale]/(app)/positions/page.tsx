@@ -56,8 +56,15 @@ export default async function PositionsPage({
           }
         : {}),
     },
-    include: {
-      department: true,
+    select: {
+      id: true,
+      name: true,
+      nameAr: true,
+      code: true,
+      grade: true,
+      minSalary: true,
+      maxSalary: true,
+      department: { select: { name: true, nameAr: true } },
       _count: { select: { employments: { where: { isCurrent: true } } } },
     },
     orderBy: [{ department: { name: "asc" } }, { name: "asc" }],

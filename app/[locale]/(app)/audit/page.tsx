@@ -50,7 +50,15 @@ export default async function AuditPage({
   const [logs, total, entities] = await Promise.all([
     prisma.auditLog.findMany({
       where,
-      include: { user: true },
+      select: {
+        id: true,
+        action: true,
+        entity: true,
+        entityId: true,
+        createdAt: true,
+        ip: true,
+        user: { select: { name: true, nameAr: true } },
+      },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,

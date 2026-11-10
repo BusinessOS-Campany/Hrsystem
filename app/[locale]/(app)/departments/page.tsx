@@ -56,12 +56,28 @@ export default async function DepartmentsPage({
           }
         : {}),
     },
-    include: {
-      manager: true,
-      parent: true,
-      children: { where: { deletedAt: null } },
-      positions: { where: { deletedAt: null } },
-      _count: { select: { employments: { where: { isCurrent: true } } } },
+    select: {
+      id: true,
+      name: true,
+      nameAr: true,
+      code: true,
+      parentId: true,
+      manager: {
+        select: {
+          firstName: true,
+          lastName: true,
+          firstNameAr: true,
+          lastNameAr: true,
+        },
+      },
+      parent: { select: { name: true, nameAr: true } },
+      _count: {
+        select: {
+          children: true,
+          positions: true,
+          employments: { where: { isCurrent: true } },
+        },
+      },
     },
     orderBy: [{ parentId: "asc" }, { name: "asc" }],
   });
@@ -71,7 +87,7 @@ export default async function DepartmentsPage({
     0,
   );
   const topLevel = departments.filter((department) => !department.parentId).length;
-  const positions = departments.reduce((sum, department) => sum + department.positions.length, 0);
+  const positions = departments.reduce((sum, department) => sum + department._count.positions, 0);
 
   return (
     <div className="space-y-6">
@@ -146,8 +162,8 @@ export default async function DepartmentsPage({
                         {employeesT("title")}
                       </p>
                     </div>
-                    {department.children.length > 0 && (
-                      <Badge variant="outline">{department.children.length}</Badge>
+                    {department._count.children > 0 && (
+                      <Badge variant="outline">{department._count.children}</Badge>
                     )}
                   </div>
                 ))}
@@ -200,7 +216,7 @@ export default async function DepartmentsPage({
                           : t("topLevel")}
                       </TableCell>
                       <TableCell>{formatNumber(department._count.employments, locale)}</TableCell>
-                      <TableCell>{formatNumber(department.positions.length, locale)}</TableCell>
+                      <TableCell>{formatNumber(department._count.positions, locale)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

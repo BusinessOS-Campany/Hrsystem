@@ -41,19 +41,39 @@ export default async function ProfilePage({
 
   const account = await prisma.user.findUnique({
     where: { id: sessionUser.id },
-    include: {
-      roles: { include: { role: true } },
+    select: {
+      name: true,
+      nameAr: true,
+      email: true,
+      username: true,
+      employeeId: true,
+      lastLoginAt: true,
+      roles: {
+        select: {
+          roleId: true,
+          role: { select: { code: true, name: true, nameAr: true } },
+        },
+      },
       employee: {
-        include: {
+        select: {
+          employeeNo: true,
+          firstName: true,
+          lastName: true,
+          firstNameAr: true,
+          lastNameAr: true,
           employments: {
             where: { isCurrent: true },
-            include: { department: true, position: true },
+            select: {
+              department: { select: { name: true, nameAr: true } },
+              position: { select: { name: true, nameAr: true } },
+            },
             take: 1,
           },
         },
       },
       sessions: {
         where: { revokedAt: null, expiresAt: { gt: new Date() } },
+        select: { id: true, userAgent: true, ip: true, createdAt: true },
         orderBy: { createdAt: "desc" },
       },
     },

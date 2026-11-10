@@ -78,18 +78,48 @@ export default async function SettingsPage({
       prisma.company.findFirst({ where: { isActive: true } }),
       prisma.branch.findMany({
         where: { isActive: true },
-        include: { _count: { select: { departments: true, employments: true } } },
+        select: {
+          id: true,
+          name: true,
+          nameAr: true,
+          code: true,
+          phone: true,
+          address: true,
+          isActive: true,
+          _count: { select: { departments: true, employments: true } },
+        },
         orderBy: { name: "asc" },
       }),
       prisma.user.findMany({
         where: { deletedAt: null },
-        include: { roles: { include: { role: true } }, employee: true },
+        select: {
+          id: true,
+          name: true,
+          nameAr: true,
+          email: true,
+          lastLoginAt: true,
+          isActive: true,
+          roles: {
+            select: {
+              roleId: true,
+              role: { select: { code: true, name: true, nameAr: true } },
+            },
+          },
+        },
         orderBy: { name: "asc" },
+        take: 20,
       }),
       prisma.role.findMany({
-        include: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          nameAr: true,
+          description: true,
           _count: { select: { permissions: true, users: true } },
-          permissions: { include: { permission: true } },
+          permissions: {
+            select: { permission: { select: { code: true } } },
+          },
         },
         orderBy: { name: "asc" },
       }),
@@ -99,9 +129,12 @@ export default async function SettingsPage({
         orderBy: { sortOrder: "asc" },
       }),
       prisma.workSchedule.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-      prisma.holiday.findMany({ orderBy: { date: "asc" } }),
-      prisma.systemSetting.findMany({ orderBy: { key: "asc" } }),
-      prisma.permission.findMany({ orderBy: [{ module: "asc" }, { code: "asc" }] }),
+      prisma.holiday.findMany({ orderBy: { date: "asc" }, take: 8 }),
+      prisma.systemSetting.findMany({ orderBy: { key: "asc" }, take: 5 }),
+      prisma.permission.findMany({
+        select: { code: true, name: true, nameAr: true, module: true },
+        orderBy: [{ module: "asc" }, { code: "asc" }],
+      }),
     ]);
 
   const canManageSettings = hasPermission(user, "settings.manage");

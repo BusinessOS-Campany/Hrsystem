@@ -27,7 +27,9 @@ export function LoginForm({
   next?: string;
   demoAccounts?: DemoAccount[];
 }) {
-  const t = useTranslations();
+  const auth = useTranslations("auth");
+  const common = useTranslations("common");
+  const errorT = useTranslations("errors");
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -47,8 +49,8 @@ export function LoginForm({
     if (result?.error) {
       setServerError(
         ["invalid", "locked", "inactive"].includes(result.error)
-          ? t(`auth.${result.error}`)
-          : t("errors.generic"),
+          ? auth(result.error as never)
+          : errorT("generic"),
       );
     }
   }
@@ -57,10 +59,10 @@ export function LoginForm({
     <div className="space-y-6">
       <div className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {t("auth.loginTitle")}
+          {auth("loginTitle")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {t("auth.loginSubtitle")}
+          {auth("loginSubtitle")}
         </p>
       </div>
 
@@ -72,7 +74,7 @@ export function LoginForm({
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-2">
-          <Label htmlFor="identifier">{t("auth.emailOrUsername")}</Label>
+          <Label htmlFor="identifier">{auth("emailOrUsername")}</Label>
           <div className="relative">
             <UserRound className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -86,13 +88,13 @@ export function LoginForm({
           </div>
           {errors.identifier && (
             <p className="text-xs text-destructive">
-              {t("common.requiredField")}
+              {common("requiredField")}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">{t("auth.password")}</Label>
+          <Label htmlFor="password">{auth("password")}</Label>
           <div className="relative">
             <LockKeyhole className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -118,21 +120,21 @@ export function LoginForm({
           </div>
           {errors.password && (
             <p className="text-xs text-destructive">
-              {t("common.requiredField")}
+              {common("requiredField")}
             </p>
           )}
         </div>
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-          {isSubmitting ? t("auth.signingIn") : t("auth.signIn")}
+          {isSubmitting ? auth("signingIn") : auth("signIn")}
         </Button>
       </form>
 
       {demoAccounts && demoAccounts.length > 0 && (
         <div className="rounded-lg border bg-muted/40 p-3">
           <p className="mb-2 text-xs font-medium text-muted-foreground">
-            {t("auth.demoAccounts")} — {t("auth.demoHint")}
+            {auth("demoAccounts")} — {auth("demoHint")}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {demoAccounts.map((account) => (
@@ -156,7 +158,7 @@ export function LoginForm({
       )}
 
       <p className="text-center text-xs text-muted-foreground">
-        {t("auth.secureNote")}
+        {auth("secureNote")}
       </p>
     </div>
   );

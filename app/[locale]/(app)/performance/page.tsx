@@ -67,10 +67,42 @@ export default async function PerformancePage({
         : canReviewTeam && user.employeeId
           ? { OR: [{ employeeId: user.employeeId }, { managerId: user.employeeId }] }
           : { employeeId: user.employeeId ?? "__none__" },
-      include: {
-        employee: true,
-        manager: true,
-        cycle: true,
+      select: {
+        id: true,
+        employeeId: true,
+        managerId: true,
+        status: true,
+        selfRating: true,
+        managerRating: true,
+        finalRating: true,
+        selfComment: true,
+        managerComment: true,
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            firstNameAr: true,
+            lastNameAr: true,
+          },
+        },
+        manager: {
+          select: {
+            firstName: true,
+            lastName: true,
+            firstNameAr: true,
+            lastNameAr: true,
+          },
+        },
+        cycle: {
+          select: {
+            id: true,
+            name: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+          },
+        },
         _count: { select: { goals: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -82,7 +114,25 @@ export default async function PerformancePage({
         : canReviewTeam && user.employeeId
           ? { OR: [{ employeeId: user.employeeId }, { employee: { managerId: user.employeeId } }] }
           : { employeeId: user.employeeId ?? "__none__" },
-      include: { employee: true },
+      select: {
+        id: true,
+        employeeId: true,
+        title: true,
+        progress: true,
+        status: true,
+        weight: true,
+        dueDate: true,
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            firstNameAr: true,
+            lastNameAr: true,
+            managerId: true,
+          },
+        },
+      },
       orderBy: [{ status: "asc" }, { dueDate: "asc" }],
       take: 40,
     }),

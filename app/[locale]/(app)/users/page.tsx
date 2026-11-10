@@ -89,8 +89,22 @@ export default async function UsersPage({
   ] = await Promise.all([
     prisma.user.findMany({
       where,
-      include: {
-        roles: { include: { role: true } },
+      select: {
+        id: true,
+        name: true,
+        nameAr: true,
+        username: true,
+        email: true,
+        isActive: true,
+        lastLoginAt: true,
+        mustChangePassword: true,
+        createdAt: true,
+        roles: {
+          select: {
+            roleId: true,
+            role: { select: { code: true, name: true, nameAr: true } },
+          },
+        },
         employee: {
           select: {
             id: true,

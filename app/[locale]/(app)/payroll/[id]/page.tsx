@@ -43,16 +43,39 @@ export default async function PayrollRunPage({
 
   const run = await prisma.payrollRun.findUnique({
     where: { id },
-    include: {
-      period: true,
-      approvedBy: true,
+    select: {
+      id: true,
+      runNo: true,
+      status: true,
+      employeeCount: true,
+      calculatedAt: true,
+      finalizedAt: true,
+      totalGross: true,
+      totalDeductions: true,
+      totalNet: true,
+      period: { select: { name: true, startDate: true, endDate: true } },
+      approvedBy: { select: { name: true, nameAr: true } },
       items: {
-        include: {
+        select: {
+          id: true,
+          employeeId: true,
+          basicSalary: true,
+          grossSalary: true,
+          totalDeductions: true,
+          netSalary: true,
+          currency: true,
           employee: {
-            include: {
+            select: {
+              employeeNo: true,
+              firstName: true,
+              lastName: true,
+              firstNameAr: true,
+              lastNameAr: true,
               employments: {
                 where: { isCurrent: true },
-                include: { department: true },
+                select: {
+                  department: { select: { name: true, nameAr: true } },
+                },
                 take: 1,
               },
             },

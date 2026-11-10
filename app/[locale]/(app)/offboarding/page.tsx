@@ -39,17 +39,40 @@ export default async function OffboardingPage({
 
   const [cases, eligibleEmployees] = await Promise.all([
     prisma.offboarding.findMany({
-    include: {
+    select: {
+      id: true,
+      employeeId: true,
+      status: true,
+      type: true,
+      progress: true,
+      reason: true,
+      requestDate: true,
+      lastWorkingDate: true,
       employee: {
-        include: {
+        select: {
+          firstName: true,
+          lastName: true,
+          firstNameAr: true,
+          lastNameAr: true,
           employments: {
             where: { isCurrent: true },
-            include: { department: true, position: true },
+            select: {
+              position: { select: { name: true, nameAr: true } },
+            },
             take: 1,
           },
         },
       },
-      tasks: { orderBy: [{ dueDate: "asc" }] },
+      tasks: {
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          completedAt: true,
+          dueDate: true,
+        },
+        orderBy: [{ dueDate: "asc" }],
+      },
     },
     orderBy: [{ status: "asc" }, { lastWorkingDate: "desc" }],
     }),

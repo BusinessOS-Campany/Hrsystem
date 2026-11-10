@@ -162,6 +162,22 @@ npx prisma migrate deploy
 9. Add rate limiting at the edge or reverse proxy.
 10. Review [SECURITY.md](SECURITY.md).
 
+### Supabase + Vercel connection pooling
+
+Serverless functions must not each hold a large connection pool. If `DATABASE_URL`
+uses Supabase's session pooler (port `5432`), append `connection_limit=1` so one
+function instance cannot exhaust the database pool:
+
+```text
+postgresql://...@...pooler.supabase.com:5432/postgres?sslmode=require&connection_limit=1
+```
+
+For higher concurrency, use Supabase's transaction pooler (port `6543`) for the
+application runtime with `pgbouncer=true&connection_limit=1`, and keep a direct
+or session-pooler URL for `prisma migrate deploy`. This is a Vercel/Supabase
+environment setting because the repository must not contain production
+credentials. Run migrations as a release step, never from every function.
+
 ## 9. Useful commands
 
 ```bash

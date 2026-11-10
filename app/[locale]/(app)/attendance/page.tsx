@@ -81,7 +81,25 @@ export default async function AttendancePage({
   const [records, corrections, myRecord, monthly, monthlyOvertime] = await Promise.all([
     prisma.attendance.findMany({
       where: { date: selectedDate, ...scope },
-      include: { employee: true },
+      select: {
+        id: true,
+        employeeId: true,
+        checkIn: true,
+        checkOut: true,
+        status: true,
+        lateMinutes: true,
+        workedMinutes: true,
+        source: true,
+        employee: {
+          select: {
+            employeeNo: true,
+            firstName: true,
+            lastName: true,
+            firstNameAr: true,
+            lastNameAr: true,
+          },
+        },
+      },
       orderBy: [{ status: "asc" }, { employee: { firstName: "asc" } }],
     }),
     canApprove
@@ -90,7 +108,21 @@ export default async function AttendancePage({
             status: "PENDING",
             ...(canViewAll ? {} : { employeeId: { in: employeeIds.length ? employeeIds : ["__none__"] } }),
           },
-          include: { employee: true },
+          select: {
+            id: true,
+            date: true,
+            reason: true,
+            requestedCheckIn: true,
+            requestedCheckOut: true,
+            employee: {
+              select: {
+                firstName: true,
+                lastName: true,
+                firstNameAr: true,
+                lastNameAr: true,
+              },
+            },
+          },
           orderBy: { createdAt: "desc" },
           take: 10,
         })

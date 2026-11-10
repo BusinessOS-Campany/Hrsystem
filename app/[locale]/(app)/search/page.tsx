@@ -33,7 +33,7 @@ export default async function SearchPage({
 
   const search = query.q?.trim() ?? "";
   const groups = search
-    ? await searchAll({ user, locale, query: search, limit: 20 })
+    ? await searchAll({ user, locale, query: search, limit: 10 })
     : [];
 
   const needle = search.toLowerCase();
@@ -50,6 +50,7 @@ export default async function SearchPage({
             item.key.toLowerCase().includes(needle) ||
             item.href.toLowerCase().includes(needle),
         )
+        .slice(0, 12)
     : [];
 
   const total = groups.reduce((sum, group) => sum + group.results.length, 0) + pages.length;

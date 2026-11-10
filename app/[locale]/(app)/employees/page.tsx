@@ -73,13 +73,34 @@ export default async function EmployeesPage({
   const [employees, total, departments] = await Promise.all([
     prisma.employee.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        employeeNo: true,
+        firstName: true,
+        lastName: true,
+        firstNameAr: true,
+        lastNameAr: true,
+        email: true,
+        status: true,
+        hireDate: true,
         employments: {
           where: { isCurrent: true },
-          include: { department: true, position: true, branch: true },
+          select: {
+            department: { select: { name: true, nameAr: true } },
+            position: { select: { name: true, nameAr: true } },
+            branch: { select: { name: true, nameAr: true } },
+          },
           take: 1,
         },
-        manager: { select: { id: true, firstName: true, lastName: true, firstNameAr: true, lastNameAr: true } },
+        manager: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            firstNameAr: true,
+            lastNameAr: true,
+          },
+        },
       },
       orderBy: [{ status: "asc" }, { employeeNo: "asc" }],
       skip: (page - 1) * PAGE_SIZE,

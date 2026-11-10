@@ -65,7 +65,9 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const locale = useLocale();
-  const t = useTranslations();
+  const t = useTranslations("common");
+  const nav = useTranslations("nav");
+  const notificationsT = useTranslations("notifications");
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggingOut, startLogout] = useTransition();
@@ -100,7 +102,7 @@ export function AppShell({
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold tracking-tight">HRSYS</p>
           <p className="truncate text-[11px] text-muted-foreground">
-            {t("common.tagline")}
+            {t("tagline")}
           </p>
         </div>
       </div>
@@ -110,7 +112,7 @@ export function AppShell({
           {visibleGroups.map((group) => (
             <div key={group.key} className="space-y-1">
               <p className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {t(`nav.${group.key}`)}
+                {nav(group.key as never)}
               </p>
               {group.items.map((item) => {
                 const Icon = NAV_ICONS[item.icon];
@@ -128,7 +130,7 @@ export function AppShell({
                     )}
                   >
                     <Icon className="size-4 shrink-0" />
-                    <span className="truncate">{t(`nav.${item.key}`)}</span>
+                    <span className="truncate">{nav(item.key as never)}</span>
                   </Link>
                 );
               })}
@@ -177,7 +179,7 @@ export function AppShell({
             size="icon"
             className="lg:hidden"
             onClick={() => setMobileOpen(true)}
-            aria-label={t("common.actions")}
+            aria-label={t("actions")}
           >
             <Menu className="size-5" />
           </Button>
@@ -191,7 +193,7 @@ export function AppShell({
                   variant="ghost"
                   size="icon"
                   className="relative"
-                  aria-label={t("nav.notifications")}
+                  aria-label={nav("notifications")}
                 >
                   <Bell className="size-4" />
                   {unreadCount > 0 && (
@@ -207,19 +209,19 @@ export function AppShell({
               >
                 <div className="flex items-center justify-between px-2 py-1.5">
                   <DropdownMenuLabel className="p-0">
-                    {t("nav.notifications")}
+                    {nav("notifications")}
                   </DropdownMenuLabel>
                   <Link
                     href="/notifications"
                     className="text-xs text-primary hover:underline"
                   >
-                    {t("notifications.viewAll")}
+                    {notificationsT("viewAll")}
                   </Link>
                 </div>
                 <DropdownMenuSeparator />
                 {notifications.length === 0 ? (
                   <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                    {t("notifications.noNotifications")}
+                    {notificationsT("noNotifications")}
                   </p>
                 ) : (
                   notifications.slice(0, 5).map((notification) => (
@@ -275,12 +277,12 @@ export function AppShell({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href="/profile">
-                    <UserRound className="size-4" /> {t("common.profile")}
+                    <UserRound className="size-4" /> {t("profile")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/settings">
-                    <Settings className="size-4" /> {t("common.settings")}
+                    <Settings className="size-4" /> {t("settings")}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -289,7 +291,7 @@ export function AppShell({
                   disabled={isLoggingOut}
                   variant="destructive"
                 >
-                  <LogOut className="size-4" /> {t("common.logout")}
+                  <LogOut className="size-4" /> {t("logout")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

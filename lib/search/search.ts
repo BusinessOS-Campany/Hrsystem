@@ -73,11 +73,20 @@ async function searchEmployees(
         },
       ],
     },
-    include: {
+    select: {
+      id: true,
+      employeeNo: true,
+      firstName: true,
+      lastName: true,
+      firstNameAr: true,
+      lastNameAr: true,
       employments: {
         where: { isCurrent: true },
-        include: { department: true, position: true },
         take: 1,
+        select: {
+          department: { select: { name: true, nameAr: true } },
+          position: { select: { name: true, nameAr: true } },
+        },
       },
     },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
@@ -130,6 +139,7 @@ async function searchDepartments(
         { description: { contains: query, mode: "insensitive" } },
       ],
     },
+    select: { id: true, name: true, nameAr: true, code: true },
     orderBy: { name: "asc" },
     take: limit,
   });
@@ -166,7 +176,13 @@ async function searchPositions(
         { description: { contains: query, mode: "insensitive" } },
       ],
     },
-    include: { department: true },
+    select: {
+      id: true,
+      name: true,
+      nameAr: true,
+      code: true,
+      department: { select: { name: true, nameAr: true } },
+    },
     orderBy: { name: "asc" },
     take: limit,
   });
@@ -241,7 +257,21 @@ async function searchLeave(
         },
       ],
     },
-    include: { employee: true, leaveType: true },
+    select: {
+      id: true,
+      requestNo: true,
+      startDate: true,
+      endDate: true,
+      employee: {
+        select: {
+          firstName: true,
+          lastName: true,
+          firstNameAr: true,
+          lastNameAr: true,
+        },
+      },
+      leaveType: { select: { name: true, nameAr: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
@@ -290,7 +320,11 @@ async function searchPayroll(
         },
       ],
     },
-    include: { period: true },
+    select: {
+      id: true,
+      runNo: true,
+      period: { select: { name: true, payDate: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
@@ -357,7 +391,19 @@ async function searchRequests(
         },
       ],
     },
-    include: { employee: true },
+    select: {
+      id: true,
+      requestNo: true,
+      subject: true,
+      employee: {
+        select: {
+          firstName: true,
+          lastName: true,
+          firstNameAr: true,
+          lastNameAr: true,
+        },
+      },
+    },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
@@ -418,6 +464,7 @@ async function searchAssets(
         },
       ],
     },
+    select: { id: true, name: true, assetTag: true, category: true },
     orderBy: { assetTag: "asc" },
     take: limit,
   });
@@ -453,6 +500,7 @@ async function searchUsers(
         { email: { contains: query, mode: "insensitive" } },
       ],
     },
+    select: { id: true, name: true, nameAr: true, username: true, email: true },
     orderBy: { name: "asc" },
     take: limit,
   });
@@ -488,7 +536,13 @@ async function searchRecruitment(
           { requirements: { contains: query, mode: "insensitive" } },
         ],
       },
-      include: { department: true, position: true },
+      select: {
+        id: true,
+        title: true,
+        titleAr: true,
+        department: { select: { name: true, nameAr: true } },
+        position: { select: { name: true, nameAr: true } },
+      },
       orderBy: { createdAt: "desc" },
       take: limit,
     }),
@@ -519,9 +573,17 @@ async function searchRecruitment(
           },
         ],
       },
-      include: {
-        candidate: true,
-        vacancy: { include: { department: true, position: true } },
+      select: {
+        id: true,
+        candidate: { select: { firstName: true, lastName: true, email: true } },
+        vacancy: {
+          select: {
+            title: true,
+            titleAr: true,
+            department: { select: { name: true, nameAr: true } },
+            position: { select: { name: true, nameAr: true } },
+          },
+        },
       },
       orderBy: { appliedAt: "desc" },
       take: limit,
@@ -579,6 +641,14 @@ async function searchTraining(
         { trainer: { contains: query, mode: "insensitive" } },
         { category: { contains: query, mode: "insensitive" } },
       ],
+    },
+    select: {
+      id: true,
+      title: true,
+      titleAr: true,
+      code: true,
+      provider: true,
+      trainer: true,
     },
     orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
     take: limit,
