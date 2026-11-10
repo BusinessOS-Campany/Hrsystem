@@ -47,6 +47,7 @@ export default async function NewEmployeePage({
           id: position.id,
           name: position.name,
           nameAr: position.nameAr,
+          departmentId: position.departmentId,
         }))}
         managers={managers.map((manager) => ({
           id: manager.id,

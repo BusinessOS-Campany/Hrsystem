@@ -31,6 +31,8 @@ import { Loader2, Save, UserRoundPlus } from "lucide-react";
 
 type Option = { id: string; name: string; nameAr?: string | null };
 
+type PositionOption = Option & { departmentId: string };
+
 type InitialEmployee = {
   id: string;
   firstName: string;
@@ -65,7 +67,7 @@ type Props = {
   initial?: InitialEmployee;
   branches: Option[];
   departments: Option[];
-  positions: Option[];
+  positions: PositionOption[];
   managers: Option[];
   roles: { code: string; name: string; nameAr: string | null }[];
 };
@@ -116,11 +118,22 @@ export function EmployeeForm({
   const employmentT = useTranslations("enums.employmentType");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const initialDepartmentId = initial?.departmentId ?? departments[0]?.id ?? "";
+  const initialPositionId =
+    initial &&
+    positions.some(
+      (position) =>
+        position.id === initial.positionId &&
+        position.departmentId === initial.departmentId,
+    )
+      ? initial.positionId
+      : "";
   const [form, setForm] = useState(
     initial
       ? {
           ...EMPTY,
           ...initial,
+          positionId: initialPositionId,
           firstNameAr: initial.firstNameAr ?? "",
           lastNameAr: initial.lastNameAr ?? "",
           phone: initial.phone ?? "",
@@ -135,14 +148,38 @@ export function EmployeeForm({
           emergencyRelation: initial.emergencyRelation ?? "",
           managerId: initial.managerId ?? "",
         }
-      : { ...EMPTY, branchId: branches[0]?.id ?? "", departmentId: departments[0]?.id ?? "", positionId: positions[0]?.id ?? "" },
+      : {
+          ...EMPTY,
+          branchId: branches[0]?.id ?? "",
+          departmentId: initialDepartmentId,
+          positionId: initialPositionId,
+        },
   );
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const positionsForDepartment = positions.filter(
+    (position) => position.departmentId === form.departmentId,
+  );
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function changeDepartment(departmentId: string) {
+    setForm((current) => {
+      const currentPosition = positions.find(
+        (position) => position.id === current.positionId,
+      );
+      return {
+        ...current,
+        departmentId,
+        positionId:
+          currentPosition?.departmentId === departmentId
+            ? current.positionId
+            : "",
+      };
+    });
   }
 
   function submit(event: React.FormEvent) {
@@ -161,13 +198,15 @@ export function EmployeeForm({
 
       if (!result.ok) {
         const message =
-          result.error === "duplicateEmail"
-            ? common("error")
-            : result.error === "roleForbidden"
+          result.error === "invalidOrg"
+            ? t("invalidOrg")
+            : result.error === "duplicateEmail"
               ? common("error")
-              : result.error === "validation"
-                ? common("requiredField")
-                : common("error");
+              : result.error === "roleForbidden"
+                ? common("error")
+                : result.error === "validation"
+                  ? common("requiredField")
+                  : common("error");
         setError(message);
         toast.error(message);
         return;
@@ -337,7 +376,7 @@ export function EmployeeForm({
             </Select>
           </Field>
           <Field label={t("department")}>
-            <Select value={form.departmentId} onValueChange={(value) => set("departmentId", value)}>
+            <Select value={form.departmentId} onValueChange={changeDepartment}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {departments.map((department) => (
@@ -349,16 +388,27 @@ export function EmployeeForm({
             </Select>
           </Field>
           <Field label={t("position")}>
-            <Select value={form.positionId} onValueChange={(value) => set("positionId", value)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <Select
+              value={form.positionId || undefined}
+              onValueChange={(value) => set("positionId", value)}
+              disabled={positionsForDepartment.length === 0}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("selectPosition")} />
+              </SelectTrigger>
               <SelectContent>
-                {positions.map((position) => (
+                {positionsForDepartment.map((position) => (
                   <SelectItem key={position.id} value={position.id}>
                     {locale === "ar" && position.nameAr ? position.nameAr : position.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {positionsForDepartment.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                {t("noPositionsForDepartment")}
+              </p>
+            )}
           </Field>
           <Field label={t("manager")}>
             <Select value={form.managerId || "none"} onValueChange={(value) => set("managerId", value === "none" ? "" : value)}>

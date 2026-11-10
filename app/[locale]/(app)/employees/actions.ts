@@ -87,11 +87,21 @@ export async function createEmployeeAction(
 
   const [company, branch, department, position] = await Promise.all([
     prisma.company.findFirst({ where: { isActive: true } }),
-    prisma.branch.findUnique({ where: { id: data.branchId } }),
-    prisma.department.findUnique({ where: { id: data.departmentId } }),
-    prisma.position.findUnique({ where: { id: data.positionId } }),
+    prisma.branch.findFirst({ where: { id: data.branchId, isActive: true } }),
+    prisma.department.findFirst({
+      where: { id: data.departmentId, deletedAt: null },
+    }),
+    prisma.position.findFirst({
+      where: { id: data.positionId, deletedAt: null },
+    }),
   ]);
-  if (!company || !branch || !department || !position) {
+  if (
+    !company ||
+    !branch ||
+    !department ||
+    !position ||
+    position.departmentId !== data.departmentId
+  ) {
     return { ok: false, error: "invalidOrg" };
   }
 
@@ -234,6 +244,24 @@ export async function updateEmployeeAction(
     },
   });
   if (!existing) return { ok: false, error: "notFound" };
+
+  const [branch, department, position] = await Promise.all([
+    prisma.branch.findFirst({ where: { id: data.branchId, isActive: true } }),
+    prisma.department.findFirst({
+      where: { id: data.departmentId, deletedAt: null },
+    }),
+    prisma.position.findFirst({
+      where: { id: data.positionId, deletedAt: null },
+    }),
+  ]);
+  if (
+    !branch ||
+    !department ||
+    !position ||
+    position.departmentId !== data.departmentId
+  ) {
+    return { ok: false, error: "invalidOrg" };
+  }
 
   const email = data.email.toLowerCase();
   const duplicate = await prisma.employee.findFirst({
