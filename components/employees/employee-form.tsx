@@ -20,7 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Loader2, Save, UserRoundPlus } from "lucide-react";
 
 type Option = { id: string; name: string; nameAr?: string | null };
@@ -213,19 +219,50 @@ export function EmployeeForm({
       <Card>
         <CardHeader>
           <CardTitle>{t("personalInfo")}</CardTitle>
+          <CardDescription>{t("nameFieldsHint")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <Field label={t("firstName")}>
-            <Input value={form.firstName} onChange={(e) => set("firstName", e.target.value)} required />
+            <Input
+              dir="ltr"
+              lang="en"
+              autoComplete="given-name"
+              placeholder={t("firstNamePlaceholder")}
+              value={form.firstName}
+              onChange={(e) => set("firstName", e.target.value)}
+              required
+            />
           </Field>
           <Field label={t("lastName")}>
-            <Input value={form.lastName} onChange={(e) => set("lastName", e.target.value)} required />
+            <Input
+              dir="ltr"
+              lang="en"
+              autoComplete="family-name"
+              placeholder={t("lastNamePlaceholder")}
+              value={form.lastName}
+              onChange={(e) => set("lastName", e.target.value)}
+              required
+            />
           </Field>
           <Field label={t("firstNameAr")}>
-            <Input value={form.firstNameAr} onChange={(e) => set("firstNameAr", e.target.value)} dir="rtl" />
+            <Input
+              dir="rtl"
+              lang="ar"
+              autoComplete="off"
+              placeholder={t("firstNameArPlaceholder")}
+              value={form.firstNameAr}
+              onChange={(e) => set("firstNameAr", e.target.value)}
+            />
           </Field>
           <Field label={t("lastNameAr")}>
-            <Input value={form.lastNameAr} onChange={(e) => set("lastNameAr", e.target.value)} dir="rtl" />
+            <Input
+              dir="rtl"
+              lang="ar"
+              autoComplete="off"
+              placeholder={t("lastNameArPlaceholder")}
+              value={form.lastNameAr}
+              onChange={(e) => set("lastNameAr", e.target.value)}
+            />
           </Field>
           <Field label={t("email")}>
             <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} required />
