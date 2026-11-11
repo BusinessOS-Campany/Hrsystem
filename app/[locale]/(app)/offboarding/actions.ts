@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, hasPermission } from "@/lib/auth/session";
 import { writeAudit } from "@/lib/auth/audit";
+import { serializable, SERIALIZABLE_TX } from "@/lib/db/transaction";
 
 export type OffboardingActionResult = {
   ok: boolean;
@@ -68,71 +69,89 @@ export async function createOffboardingAction(
     return { ok: false, error: "invalidDate" };
   }
 
-  const employee = await prisma.employee.findFirst({
-    where: {
-      id: parsed.data.employeeId,
-      deletedAt: null,
-      status: { notIn: ["TERMINATED", "RESIGNED", "RETIRED"] },
-    },
-    include: {
-      user: true,
-      offboardings: {
-        where: { status: { in: ["NOT_STARTED", "IN_PROGRESS"] } },
-        take: 1,
-      },
-    },
-  });
-  if (!employee) return { ok: false, error: "notFound" };
-  if (employee.offboardings.length > 0) return { ok: false, error: "activeCaseExists" };
+  const result = await serializable(() =>
+    prisma.$transaction(async (tx) => {
+      const employee = await tx.employee.findFirst({
+        where: {
+          id: parsed.data.employeeId,
+          deletedAt: null,
+          status: { notIn: ["TERMINATED", "RESIGNED", "RETIRED"] },
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          user: { select: { id: true } },
+          offboardings: {
+            where: { status: { in: ["NOT_STARTED", "IN_PROGRESS"] } },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      });
+      if (!employee) return { error: "notFound" as const };
+      if (employee.offboardings.length > 0) {
+        return { error: "activeCaseExists" as const };
+      }
 
-  const offboarding = await prisma.offboarding.create({
-    data: {
-      employeeId: employee.id,
-      type: parsed.data.type,
-      requestDate,
-      lastWorkingDate,
-      reason: parsed.data.reason || null,
-      status: "NOT_STARTED",
-      progress: 0,
-      tasks: {
-        create: defaultTasks.map((task) => ({
-          title: task.title,
-          category: task.category,
-          dueDate: addDays(lastWorkingDate, task.offset),
-          isRequired: true,
-        })),
-      },
-    },
-  });
+      const offboarding = await tx.offboarding.create({
+        data: {
+          employeeId: employee.id,
+          type: parsed.data.type,
+          requestDate,
+          lastWorkingDate,
+          reason: parsed.data.reason || null,
+          status: "NOT_STARTED",
+          progress: 0,
+          tasks: {
+            create: defaultTasks.map((task) => ({
+              title: task.title,
+              category: task.category,
+              dueDate: addDays(lastWorkingDate, task.offset),
+              isRequired: true,
+            })),
+          },
+        },
+        select: { id: true },
+      });
 
-  if (employee.user) {
-    await prisma.notification.create({
-      data: {
-        userId: employee.user.id,
-        type: "GENERAL",
-        title: "Offboarding started",
-        titleAr: "تم بدء إنهاء الخدمة",
-        message: `Your offboarding process has started. Last working day: ${parsed.data.lastWorkingDate}.`,
-        messageAr: `بدأت عملية إنهاء الخدمة الخاصة بك. آخر يوم عمل: ${parsed.data.lastWorkingDate}.`,
-        link: "/offboarding",
-      },
-    });
-  }
+      if (employee.user) {
+        await tx.notification.create({
+          data: {
+            userId: employee.user.id,
+            type: "GENERAL",
+            title: "Offboarding started",
+            titleAr: "تم بدء إنهاء الخدمة",
+            message: `Your offboarding process has started. Last working day: ${parsed.data.lastWorkingDate}.`,
+            messageAr: `بدأت عملية إنهاء الخدمة الخاصة بك. آخر يوم عمل: ${parsed.data.lastWorkingDate}.`,
+            link: "/offboarding",
+          },
+        });
+      }
 
-  await writeAudit({
-    userId: user.id,
-    action: "CREATE",
-    entity: "Offboarding",
-    entityId: offboarding.id,
-    newData: {
-      employeeId: employee.id,
-      type: parsed.data.type,
-      lastWorkingDate: parsed.data.lastWorkingDate,
-    },
-  });
+      await writeAudit(
+        {
+          userId: user.id,
+          action: "CREATE",
+          entity: "Offboarding",
+          entityId: offboarding.id,
+          newData: {
+            employeeId: employee.id,
+            type: parsed.data.type,
+            lastWorkingDate: parsed.data.lastWorkingDate,
+          },
+        },
+        tx,
+      );
+
+      return { offboarding, employeeId: employee.id };
+    }, SERIALIZABLE_TX),
+  );
+
+  if ("error" in result) return { ok: false, error: result.error };
 
   revalidatePath(`/${locale}/offboarding`);
-  revalidatePath(`/${locale}/employees/${employee.id}`);
+  revalidatePath(`/${locale}/employees/${result.employeeId}`);
   revalidatePath(`/${locale}/dashboard`);
   return { ok: true };
 }
@@ -144,75 +163,115 @@ export async function toggleOffboardingTaskAction(
   const user = await getCurrentUser();
   if (!user || !hasPermission(user, "offboarding.manage")) return;
 
-  const task = await prisma.offboardingTask.findUnique({
-    where: { id: taskId },
-    include: {
-      offboarding: {
-        include: {
-          tasks: true,
-          employee: { include: { user: true } },
+  const result = await serializable(() =>
+    prisma.$transaction(async (tx) => {
+      const task = await tx.offboardingTask.findUnique({
+        where: { id: taskId },
+        select: {
+          id: true,
+          completedAt: true,
+          offboardingId: true,
+          offboarding: {
+            select: {
+              id: true,
+              status: true,
+              type: true,
+              lastWorkingDate: true,
+              employee: {
+                select: {
+                  id: true,
+                  user: { select: { id: true } },
+                },
+              },
+            },
+          },
         },
-      },
-    },
-  });
-  if (!task) return;
-  if (task.offboarding.status === "COMPLETED") return;
-
-  const completed = !task.completedAt;
-  await prisma.offboardingTask.update({
-    where: { id: taskId },
-    data: { completedAt: completed ? new Date() : null },
-  });
-
-  const tasks = task.offboarding.tasks.map((item) =>
-    item.id === taskId ? { ...item, completedAt: completed ? new Date() : null } : item,
-  );
-  const required = tasks.filter((item) => item.isRequired);
-  const completedRequired = required.filter((item) => item.completedAt).length;
-  const progress = required.length > 0 ? Math.round((completedRequired / required.length) * 100) : 0;
-  const allDone = required.length > 0 && completedRequired === required.length;
-  const employee = task.offboarding.employee;
-
-  await prisma.$transaction(async (tx) => {
-    await tx.offboarding.update({
-      where: { id: task.offboardingId },
-      data: {
-        progress,
-        status: allDone ? "COMPLETED" : progress > 0 ? "IN_PROGRESS" : "NOT_STARTED",
-        completedAt: allDone ? new Date() : null,
-      },
-    });
-
-    if (allDone) {
-      await tx.employee.update({
-        where: { id: employee.id },
-        data: { status: employeeStatusFor(task.offboarding.type) },
       });
-      if (employee.user) {
-        await tx.user.update({
-          where: { id: employee.user.id },
-          data: { isActive: false },
-        });
-        await tx.session.deleteMany({ where: { userId: employee.user.id } });
-      }
-    }
-  });
+      if (!task || task.offboarding.status === "COMPLETED") return null;
 
-  await writeAudit({
-    userId: user.id,
-    action: "UPDATE",
-    entity: "OffboardingTask",
-    entityId: taskId,
-    newData: {
-      completed,
-      progress,
-      ...(allDone
-        ? { employeeStatus: employeeStatusFor(task.offboarding.type), accountDeactivated: Boolean(employee.user) }
-        : {}),
-    },
-  });
+      const completed = !task.completedAt;
+      const completedAt = completed ? new Date() : null;
+      const updatedTask = await tx.offboardingTask.updateMany({
+        where: { id: taskId, completedAt: task.completedAt },
+        data: { completedAt },
+      });
+      if (updatedTask.count !== 1) return null;
+
+      const tasks = await tx.offboardingTask.findMany({
+        where: { offboardingId: task.offboardingId },
+        select: { isRequired: true, completedAt: true },
+      });
+      const required = tasks.filter((item) => item.isRequired);
+      const completedRequired = required.filter(
+        (item) => item.completedAt,
+      ).length;
+      const progress =
+        required.length > 0
+          ? Math.round((completedRequired / required.length) * 100)
+          : 0;
+      const allDone =
+        required.length > 0 && completedRequired === required.length;
+      const employee = task.offboarding.employee;
+
+      await tx.offboarding.update({
+        where: { id: task.offboardingId },
+        data: {
+          progress,
+          status: allDone
+            ? "COMPLETED"
+            : progress > 0
+              ? "IN_PROGRESS"
+              : "NOT_STARTED",
+          completedAt: allDone ? new Date() : null,
+        },
+      });
+
+      if (allDone) {
+        await tx.employee.update({
+          where: { id: employee.id },
+          data: {
+            status: employeeStatusFor(task.offboarding.type),
+            terminationDate: task.offboarding.lastWorkingDate,
+          },
+        });
+        if (employee.user) {
+          await tx.user.update({
+            where: { id: employee.user.id },
+            data: { isActive: false },
+          });
+          await tx.session.deleteMany({
+            where: { userId: employee.user.id },
+          });
+        }
+      }
+
+      await writeAudit(
+        {
+          userId: user.id,
+          action: "UPDATE",
+          entity: "OffboardingTask",
+          entityId: taskId,
+          newData: {
+            completed,
+            progress,
+            ...(allDone
+              ? {
+                  employeeStatus: employeeStatusFor(task.offboarding.type),
+                  accountDeactivated: Boolean(employee.user),
+                }
+              : {}),
+          },
+        },
+        tx,
+      );
+
+      return { employeeId: employee.id, allDone };
+    }, SERIALIZABLE_TX),
+  );
+
+  if (!result) return;
 
   revalidatePath(`/${locale}/offboarding`);
-  revalidatePath(`/${locale}/employees/${employee.id}`);
+  revalidatePath(`/${locale}/employees/${result.employeeId}`);
   revalidatePath(`/${locale}/dashboard`);
 }

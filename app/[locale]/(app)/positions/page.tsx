@@ -134,47 +134,86 @@ export default async function PositionsPage({
               <EmptyState title={t("noPositions")} />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("name")}</TableHead>
-                  <TableHead>{t("department")}</TableHead>
-                  <TableHead>{t("grade")}</TableHead>
-                  <TableHead className="hidden md:table-cell">{t("minSalary")}</TableHead>
-                  <TableHead className="hidden md:table-cell">{t("maxSalary")}</TableHead>
-                  <TableHead>{t("incumbents")}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="divide-y md:hidden">
                 {positions.map((position) => (
-                  <TableRow key={position.id}>
-                    <TableCell>
-                      <div className="space-y-0.5">
-                        <p className="font-medium">
+                  <div key={position.id} className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
                           {localizedName(locale, position.name, position.nameAr)}
                         </p>
-                        <p className="text-xs text-muted-foreground">{position.code}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {position.code} ·{" "}
+                          {localizedName(
+                            locale,
+                            position.department.name,
+                            position.department.nameAr,
+                          )}
+                        </p>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {localizedName(locale, position.department.name, position.department.nameAr)}
-                    </TableCell>
-                    <TableCell>
-                      {position.grade ? <Badge variant="outline">{position.grade}</Badge> : "—"}
-                    </TableCell>
-                    <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                      {formatMoney(position.minSalary, locale, "YER")}
-                    </TableCell>
-                    <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                      {formatMoney(position.maxSalary, locale, "YER")}
-                    </TableCell>
-                    <TableCell>
                       <Badge variant="secondary">{position._count.employments}</Badge>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      {position.grade && (
+                        <Badge variant="outline">{position.grade}</Badge>
+                      )}
+                      <span>
+                        {formatMoney(position.minSalary, locale, "YER")} –{" "}
+                        {formatMoney(position.maxSalary, locale, "YER")}
+                      </span>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("name")}</TableHead>
+                      <TableHead>{t("department")}</TableHead>
+                      <TableHead>{t("grade")}</TableHead>
+                      <TableHead className="hidden md:table-cell">{t("minSalary")}</TableHead>
+                      <TableHead className="hidden md:table-cell">{t("maxSalary")}</TableHead>
+                      <TableHead>{t("incumbents")}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {positions.map((position) => (
+                      <TableRow key={position.id}>
+                        <TableCell>
+                          <div className="space-y-0.5">
+                            <p className="font-medium">
+                              {localizedName(locale, position.name, position.nameAr)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{position.code}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {localizedName(
+                            locale,
+                            position.department.name,
+                            position.department.nameAr,
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {position.grade ? <Badge variant="outline">{position.grade}</Badge> : "—"}
+                        </TableCell>
+                        <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                          {formatMoney(position.minSalary, locale, "YER")}
+                        </TableCell>
+                        <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
+                          {formatMoney(position.maxSalary, locale, "YER")}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{position._count.employments}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -28,6 +28,16 @@ const TYPES = [
   "OTHER",
 ] as const;
 
+const TYPE_KEYS = {
+  SALARY_CERTIFICATE: "salaryCertificate",
+  EMPLOYMENT_CERTIFICATE: "employmentCertificate",
+  ADVANCE: "advance",
+  LOAN: "loan",
+  EXPENSE: "expense",
+  DOCUMENT: "document",
+  OTHER: "other",
+} as const;
+
 export function RequestForm({ locale }: { locale: string }) {
   const t = useTranslations("requests");
   const common = useTranslations("common");
@@ -48,7 +58,15 @@ export function RequestForm({ locale }: { locale: string }) {
       formData.set("amount", amount);
       const result = await createRequestAction(locale, formData);
       if (!result.ok) {
-        toast.error(common("error"));
+        const message =
+          result.error === "noEmployee"
+            ? t("noEmployee")
+            : result.error === "conflict"
+              ? t("alreadyReviewed")
+              : result.error === "invalid"
+                ? common("requiredField")
+                : common("error");
+        toast.error(message);
         return;
       }
       toast.success(t("requestSubmitted"));
@@ -60,18 +78,21 @@ export function RequestForm({ locale }: { locale: string }) {
     });
   }
 
+  const needsAmount =
+    type === "ADVANCE" || type === "LOAN" || type === "EXPENSE";
+
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="space-y-2">
-        <Label>{t("type")}</Label>
+        <Label htmlFor="requestType">{t("type")}</Label>
         <Select value={type} onValueChange={setType} required>
-          <SelectTrigger className="w-full">
+          <SelectTrigger id="requestType" className="w-full">
             <SelectValue placeholder={t("type")} />
           </SelectTrigger>
           <SelectContent>
             {TYPES.map((item) => (
               <SelectItem key={item} value={item}>
-                {item.toLowerCase().replaceAll("_", " ")}
+                {t(TYPE_KEYS[item])}
               </SelectItem>
             ))}
           </SelectContent>
@@ -83,6 +104,8 @@ export function RequestForm({ locale }: { locale: string }) {
           id="subject"
           value={subject}
           onChange={(event) => setSubject(event.target.value)}
+          minLength={3}
+          maxLength={200}
           required
         />
       </div>
@@ -92,19 +115,22 @@ export function RequestForm({ locale }: { locale: string }) {
           id="details"
           value={details}
           onChange={(event) => setDetails(event.target.value)}
-          rows={2}
+          rows={3}
+          maxLength={2000}
         />
       </div>
-      {(type === "ADVANCE" || type === "LOAN" || type === "EXPENSE") && (
+      {needsAmount && (
         <div className="space-y-2">
           <Label htmlFor="amount">{t("amount")}</Label>
           <Input
             id="amount"
             type="number"
-            min="0"
+            min="0.01"
+            max="1000000000"
             step="0.01"
             value={amount}
             onChange={(event) => setAmount(event.target.value)}
+            required
           />
         </div>
       )}

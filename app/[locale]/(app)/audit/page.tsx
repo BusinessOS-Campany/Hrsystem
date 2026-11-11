@@ -162,10 +162,38 @@ export default async function AuditPage({
               <EmptyState title={t("noLogs")} />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("timestamp")}</TableHead>
+            <>
+              <div className="divide-y md:hidden">
+                {logs.map((log) => (
+                  <div key={log.id} className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {log.user
+                            ? localizedName(locale, log.user.name, log.user.nameAr)
+                            : t("system")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateTime(log.createdAt, locale)}
+                        </p>
+                      </div>
+                      <StatusBadge value={log.action} group="auditAction" />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline">{log.entity}</Badge>
+                      {log.entityId && (
+                        <span className="max-w-full truncate">{log.entityId}</span>
+                      )}
+                      {log.ip && <span>{log.ip}</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("timestamp")}</TableHead>
                   <TableHead>{t("user")}</TableHead>
                   <TableHead>{t("action")}</TableHead>
                   <TableHead>{t("entity")}</TableHead>
@@ -199,7 +227,9 @@ export default async function AuditPage({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+                </Table>
+              </div>
+            </>
           )}
           <div className="flex flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted-foreground">

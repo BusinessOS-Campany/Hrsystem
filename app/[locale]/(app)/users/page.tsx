@@ -260,6 +260,36 @@ export default async function UsersPage({
     return `/users${suffix ? `?${suffix}` : ""}`;
   }
 
+
+  function renderUserEdit(
+    account: (typeof users)[number],
+    canEdit: boolean,
+  ) {
+    if (!canEdit) return null;
+    return (
+      <SettingsDialog
+        title={t("edit")}
+        description={localizedName(locale, account.name, account.nameAr)}
+        triggerLabel={common("edit")}
+        triggerSize="xs"
+        successMessage={t("userUpdated")}
+        fields={editFields}
+        initial={{
+          name: account.name,
+          nameAr: account.nameAr ?? "",
+          roleCodes: account.roles
+            .map((userRole) => userRole.role.code)
+            .join(","),
+          password: "",
+          isActive: account.isActive,
+          mustChangePassword: account.mustChangePassword,
+        }}
+        action={updateUserAction.bind(null, locale, account.id)}
+        errorMessages={userErrorMessages}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -361,6 +391,100 @@ export default async function UsersPage({
           </div>
         ) : (
           <>
+            <div className="divide-y md:hidden">
+              {users.map((account) => {
+                const canEdit =
+                  account.id !== actor.id &&
+                  (actorIsSuper ||
+                    !account.roles.some(
+                      (userRole) => userRole.role.code === "SUPER_ADMIN",
+                    ));
+                const employeeName = account.employee
+                  ? `${account.employee.firstName} ${account.employee.lastName}`
+                  : "";
+                const employeeNameAr = account.employee
+                  ? `${account.employee.firstNameAr ?? ""} ${account.employee.lastNameAr ?? ""}`.trim()
+                  : "";
+                return (
+                  <div key={account.id} className="space-y-2 p-4">
+                    <div className="flex items-start gap-2.5">
+                      <Avatar className="size-9 shrink-0">
+                        <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+                          {account.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-medium">
+                            {localizedName(locale, account.name, account.nameAr)}
+                          </p>
+                          {account.id === actor.id && (
+                            <Badge variant="secondary" className="text-[10px]">
+                              {common("self")}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          @{account.username} · {account.email}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={account.isActive ? "secondary" : "outline"}
+                        className="shrink-0"
+                      >
+                        {account.isActive ? t("active") : t("inactive")}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {account.roles.length > 0 ? (
+                        account.roles.map((userRole) => (
+                          <Badge
+                            key={userRole.roleId}
+                            variant="outline"
+                            className="text-[10px]"
+                          >
+                            {localizedName(
+                              locale,
+                              userRole.role.name,
+                              userRole.role.nameAr,
+                            )}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {common("notAvailable")}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        {t("employee")}:{" "}
+                        {account.employee ? (
+                          <Link
+                            href={`/employees/${account.employee.id}`}
+                            className="font-medium text-foreground hover:underline"
+                          >
+                            {localizedName(locale, employeeName, employeeNameAr)}
+                          </Link>
+                        ) : (
+                          t("noEmployee")
+                        )}
+                      </span>
+                      <span>
+                        {t("lastLogin")}:{" "}
+                        {formatDate(account.lastLoginAt, locale, {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </span>
+                    </div>
+                    {renderUserEdit(account, canEdit)}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -479,42 +603,14 @@ export default async function UsersPage({
                         </Badge>
                       </TableCell>
                       <TableCell className="text-end">
-                        {canEdit && (
-                          <SettingsDialog
-                            title={t("edit")}
-                            description={localizedName(
-                              locale,
-                              account.name,
-                              account.nameAr,
-                            )}
-                            triggerLabel={common("edit")}
-                            triggerSize="xs"
-                            successMessage={t("userUpdated")}
-                            fields={editFields}
-                            initial={{
-                              name: account.name,
-                              nameAr: account.nameAr ?? "",
-                              roleCodes: account.roles
-                                .map((userRole) => userRole.role.code)
-                                .join(","),
-                              password: "",
-                              isActive: account.isActive,
-                              mustChangePassword: account.mustChangePassword,
-                            }}
-                            action={updateUserAction.bind(
-                              null,
-                              locale,
-                              account.id,
-                            )}
-                            errorMessages={userErrorMessages}
-                          />
-                        )}
+                        {renderUserEdit(account, canEdit)}
                       </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
+            </div>
 
             <div className="flex flex-col gap-2 border-t px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">

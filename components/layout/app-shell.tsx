@@ -73,6 +73,7 @@ export function AppShell({
   const [isLoggingOut, startLogout] = useTransition();
 
   const displayName = localizedName(locale, user.name, user.nameAr);
+  const canViewSettings = user.permissions.includes("settings.view");
   const roleLabel =
     user.roles.length > 0
       ? localizedName(locale, user.roles[0].name, user.roles[0].nameAr)
@@ -280,11 +281,13 @@ export function AppShell({
                     <UserRound className="size-4" /> {t("profile")}
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <Settings className="size-4" /> {t("settings")}
-                  </Link>
-                </DropdownMenuItem>
+                {canViewSettings && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">
+                      <Settings className="size-4" /> {t("settings")}
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={logout}

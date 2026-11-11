@@ -266,6 +266,71 @@ export default async function SettingsPage({
     { name: "isRecurring", label: t("recurring"), type: "switch" },
   ];
 
+
+  function renderBranchEdit(branch: (typeof branches)[number]) {
+    if (!canManageSettings) return null;
+    return (
+      <SettingsDialog
+        title={t("editBranch")}
+        triggerLabel={common("edit")}
+        triggerSize="xs"
+        successMessage={t("branchUpdated")}
+        fields={branchFields}
+        initial={{
+          name: branch.name,
+          nameAr: branch.nameAr,
+          code: branch.code,
+          phone: branch.phone ?? "",
+          address: branch.address ?? "",
+          isActive: branch.isActive,
+        }}
+        action={updateBranchAction.bind(null, locale, branch.id)}
+      />
+    );
+  }
+
+  function renderSettingsUserEdit(account: (typeof users)[number]) {
+    if (
+      !canManageUsers ||
+      account.id === user.id ||
+      (!actorIsSuper &&
+        account.roles.some(
+          (userRole) => userRole.role.code === "SUPER_ADMIN",
+        ))
+    ) {
+      return null;
+    }
+    return (
+      <SettingsDialog
+        title={t("editUser")}
+        triggerLabel={common("edit")}
+        triggerSize="xs"
+        successMessage={t("userUpdated")}
+        fields={[
+          { name: "name", label: common("name"), required: true },
+          { name: "nameAr", label: common("nameAr"), dir: "rtl" },
+          {
+            name: "roleCodes",
+            label: t("role"),
+            type: "checkboxes",
+            options: roleOptions,
+            colSpan: 2,
+          },
+          { name: "isActive", label: common("active"), type: "switch" },
+        ]}
+        initial={{
+          name: account.name,
+          nameAr: account.nameAr ?? "",
+          roleCodes: account.roles
+            .map((userRole) => userRole.role.code)
+            .join(","),
+          isActive: account.isActive,
+        }}
+        action={updateUserAction.bind(null, locale, account.id)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader title={t("title")} description={t("subtitle")} />
@@ -386,7 +451,39 @@ export default async function SettingsPage({
                 <EmptyState title={common("noResults")} />
               </div>
             ) : (
-              <Table>
+              <>
+                <div className="divide-y md:hidden">
+                  {branches.map((branch) => (
+                    <div key={branch.id} className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {localizedName(locale, branch.name, branch.nameAr)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {branch.code}
+                          </p>
+                        </div>
+                        <Badge variant="outline">
+                          {branch.isActive ? common("active") : common("inactive")}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          {employeesT("department")}:{" "}
+                          {formatNumber(branch._count.departments, locale)}
+                        </span>
+                        <span>
+                          {employeesT("title")}:{" "}
+                          {formatNumber(branch._count.employments, locale)}
+                        </span>
+                      </div>
+                      {renderBranchEdit(branch)}
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden md:block">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("branchName")}</TableHead>
@@ -407,30 +504,13 @@ export default async function SettingsPage({
                       </TableCell>
                       <TableCell>{formatNumber(branch._count.departments, locale)}</TableCell>
                       <TableCell>{formatNumber(branch._count.employments, locale)}</TableCell>
-                      <TableCell>
-                        {canManageSettings && (
-                          <SettingsDialog
-                            title={t("editBranch")}
-                            triggerLabel={common("edit")}
-                            triggerSize="xs"
-                            successMessage={t("branchUpdated")}
-                            fields={branchFields}
-                            initial={{
-                              name: branch.name,
-                              nameAr: branch.nameAr,
-                              code: branch.code,
-                              phone: branch.phone ?? "",
-                              address: branch.address ?? "",
-                              isActive: branch.isActive,
-                            }}
-                            action={updateBranchAction.bind(null, locale, branch.id)}
-                          />
-                        )}
-                      </TableCell>
+                      <TableCell>{renderBranchEdit(branch)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -450,6 +530,53 @@ export default async function SettingsPage({
             )}
           </CardHeader>
           <CardContent className="p-0">
+            <>
+              <div className="divide-y md:hidden">
+                {users.slice(0, 20).map((account) => (
+                  <div key={account.id} className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {localizedName(locale, account.name, account.nameAr)}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {account.email}
+                        </p>
+                      </div>
+                      <Badge
+                        variant={account.isActive ? "secondary" : "outline"}
+                        className="shrink-0"
+                      >
+                        {account.isActive ? common("active") : common("inactive")}
+                      </Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {account.roles.map((userRole) => (
+                        <Badge
+                          key={userRole.roleId}
+                          variant="outline"
+                          className="text-[10px]"
+                        >
+                          {localizedName(
+                            locale,
+                            userRole.role.name,
+                            userRole.role.nameAr,
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("lastLogin")}:{" "}
+                      {formatDate(account.lastLoginAt, locale, {
+                        day: "2-digit",
+                        month: "short",
+                      })}
+                    </p>
+                    {renderSettingsUserEdit(account)}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -494,53 +621,14 @@ export default async function SettingsPage({
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {canManageUsers &&
-                        account.id !== user.id &&
-                        (actorIsSuper ||
-                          !account.roles.some(
-                            (userRole) => userRole.role.code === "SUPER_ADMIN",
-                          )) && (
-                          <SettingsDialog
-                            title={t("editUser")}
-                            triggerLabel={common("edit")}
-                            triggerSize="xs"
-                            successMessage={t("userUpdated")}
-                            fields={[
-                              { name: "name", label: common("name"), required: true },
-                              {
-                                name: "nameAr",
-                                label: common("nameAr"),
-                                dir: "rtl",
-                              },
-                              {
-                                name: "roleCodes",
-                                label: t("role"),
-                                type: "checkboxes",
-                                options: roleOptions,
-                                colSpan: 2,
-                              },
-                              {
-                                name: "isActive",
-                                label: common("active"),
-                                type: "switch",
-                              },
-                            ]}
-                            initial={{
-                              name: account.name,
-                              nameAr: account.nameAr ?? "",
-                              roleCodes: account.roles
-                                .map((userRole) => userRole.role.code)
-                                .join(","),
-                              isActive: account.isActive,
-                            }}
-                            action={updateUserAction.bind(null, locale, account.id)}
-                          />
-                        )}
+                      {renderSettingsUserEdit(account)}
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+              </div>
+            </>
           </CardContent>
         </Card>
       </div>

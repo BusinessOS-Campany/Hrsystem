@@ -234,7 +234,22 @@
     "welcomeBack": "Welcome back, {name}",
     "welcomeHint": "Here is what is happening across the organization today.",
     "latestActivity": "Latest activity",
-    "noActivity": "No recent activity."
+    "noActivity": "No recent activity.",
+    "myWorkspace": "My workspace",
+    "myAttendance": "My attendance",
+    "myPendingLeave": "Pending leave",
+    "myLeaveBalance": "Leave balance",
+    "myLatestPayslip": "Latest payslip",
+    "myRecentLeave": "My recent leave",
+    "noRecentLeave": "No leave requests yet.",
+    "presentThisMonth": "Present this month",
+    "pendingDays": "pending days",
+    "remainingDays": "remaining days",
+    "noPayslipYet": "No finalized payslip yet.",
+    "viewMyLeave": "View my leave",
+    "viewMyAttendance": "View my attendance",
+    "viewMyPayslip": "View my payslip",
+    "noEmployeeProfile": "No employee profile is linked to this account. Contact HR to link your account."
   },
   "employees": {
     "title": "Employees",
@@ -497,7 +512,14 @@
       "4": "Thursday",
       "5": "Friday",
       "6": "Saturday"
-    }
+    },
+    "invalidCorrection": "Enter a valid date and at least one valid time.",
+    "correctionDuplicate": "A pending correction already exists for this date.",
+    "correctionComment": "Review comment",
+    "rejectReasonRequired": "A rejection reason is required (at least 3 characters).",
+    "rejectReasonHint": "The employee will see this reason in their notification.",
+    "rejectReasonPlaceholder": "Explain why this correction is being rejected…",
+    "alreadyReviewed": "This correction has already been reviewed."
   },
   "leave": {
     "title": "Leave",
@@ -554,7 +576,34 @@
     "typeCreated": "Leave type created",
     "workdaysHint": "Working days are calculated automatically (Sunday–Thursday, excluding public holidays).",
     "statusBreakdown": "Requests by status",
-    "myBalance": "My leave balance"
+    "myBalance": "My leave balance",
+    "rejectReasonRequired": "A rejection reason is required (at least 3 characters).",
+    "rejectReasonHint": "The employee will see this reason in their notification and request history.",
+    "rejectReasonPlaceholder": "Explain why this request is being rejected…",
+    "alreadyReviewed": "This request has already been reviewed or cancelled.",
+    "noEmployee": "Your account is not linked to an employee record. Contact HR.",
+    "cancelledMsg": "Leave request cancelled",
+    "notCancellable": "This request can no longer be cancelled.",
+    "cancelConfirm": "Cancel leave request?",
+    "cancelRequestHint": "Request {requestNo} will be cancelled and any reserved leave balance will be released.",
+    "cancelReason": "Cancellation reason (optional)",
+    "cancelReasonPlaceholder": "Add a short note…",
+    "cancelRequest": "Cancel request",
+    "requestDetails": "Leave request details",
+    "approvalHistory": "Approval history",
+    "calendarPrev": "Previous month",
+    "calendarNext": "Next month",
+    "noCalendar": "No approved or pending leave in this month.",
+    "employee": "Employee",
+    "carried": "Carried forward",
+    "adjustBalance": "Adjust balance",
+    "balanceAdjusted": "Leave balance updated",
+    "invalidBalance": "Enter valid balance values.",
+    "balanceExceeded": "Used and pending days cannot exceed the total entitlement.",
+    "usedAdjustment": "Used-days adjustment",
+    "usedAdjustmentHint": "Positive values increase used days; negative values correct them. Entitlement and carry-forward are set as absolute values.",
+    "unlimited": "No annual limit",
+    "unpaid": "Unpaid"
   },
   "payroll": {
     "title": "Payroll",
@@ -903,7 +952,8 @@
     "feedback": "Feedback",
     "duplicateCourse": "A course with this code already exists.",
     "invalidDates": "Enter valid dates.",
-    "invalidScore": "Score must be between 0 and 100."
+    "invalidScore": "Score must be between 0 and 100.",
+    "mixedCurrencies": "Mixed currencies"
   },
   "assets": {
     "title": "Assets",
@@ -969,6 +1019,7 @@
     "approvalHistory": "Approval history",
     "approve": "Approve",
     "reject": "Reject",
+    "rejectConfirm": "Reject this request?",
     "noRequests": "No requests found.",
     "requestSubmitted": "Request submitted",
     "approvedMsg": "Request approved",
@@ -991,7 +1042,13 @@
     "stepApproved": "Approved",
     "stepPending": "Pending",
     "stepRejected": "Rejected",
-    "workflow": "Approval workflow"
+    "workflow": "Approval workflow",
+    "rejectReasonRequired": "A rejection reason is required (at least 3 characters).",
+    "rejectReasonHint": "The employee will see this reason in their notification.",
+    "rejectReasonPlaceholder": "Explain why this request is being rejected…",
+    "alreadyReviewed": "This request has already been reviewed or cancelled.",
+    "cancelled": "Cancelled",
+    "noEmployee": "Your account is not linked to an employee record. Contact HR."
   },
   "reports": {
     "title": "Reports",

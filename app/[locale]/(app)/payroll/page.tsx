@@ -73,7 +73,10 @@ export default async function PayrollPage({
       : Promise.resolve([]),
     user.employeeId && canViewSelf
       ? prisma.payrollItem.findMany({
-          where: { employeeId: user.employeeId },
+          where: {
+            employeeId: user.employeeId,
+            run: { status: { in: ["FINALIZED", "PAID"] } },
+          },
           select: {
             id: true,
             basicSalary: true,
@@ -195,61 +198,109 @@ export default async function PayrollPage({
                 <EmptyState title={t("noRuns")} />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("runNo")}</TableHead>
-                    <TableHead>{t("period")}</TableHead>
-                    <TableHead>{t("employeeCount")}</TableHead>
-                    <TableHead>{t("gross")}</TableHead>
-                    <TableHead>{t("deductions")}</TableHead>
-                    <TableHead>{t("net")}</TableHead>
-                    <TableHead>{common("status")}</TableHead>
-                    <TableHead className="text-end">{common("actions")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="divide-y md:hidden">
                   {runs.map((run) => (
-                    <TableRow key={run.id}>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {run.runNo}
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm font-medium">{run.period.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(run.period.payDate, locale)}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">
-                          {formatNumber(run.employeeCount, locale)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {" "}
-                          / {formatNumber(run._count.items, locale)}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatMoney(run.totalGross, locale, "YER")}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatMoney(run.totalDeductions, locale, "YER")}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {formatMoney(run.totalNet, locale, "YER")}
-                      </TableCell>
-                      <TableCell>
+                    <div key={run.id} className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{run.period.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {run.runNo} · {formatDate(run.period.payDate, locale)}
+                          </p>
+                        </div>
                         <StatusBadge value={run.status} group="payrollStatus" />
-                      </TableCell>
-                      <TableCell className="text-end">
-                        <Button asChild size="sm" variant="ghost">
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">{t("gross")}</p>
+                          <p className="font-medium">
+                            {formatMoney(run.totalGross, locale, "YER")}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{t("deductions")}</p>
+                          <p className="font-medium">
+                            {formatMoney(run.totalDeductions, locale, "YER")}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{t("net")}</p>
+                          <p className="font-semibold">
+                            {formatMoney(run.totalNet, locale, "YER")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {formatNumber(run.employeeCount, locale)} /{" "}
+                          {formatNumber(run._count.items, locale)}
+                        </span>
+                        <Button asChild size="sm" variant="outline">
                           <Link href={`/payroll/${run.id}`}>{common("view")}</Link>
                         </Button>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("runNo")}</TableHead>
+                        <TableHead>{t("period")}</TableHead>
+                        <TableHead>{t("employeeCount")}</TableHead>
+                        <TableHead>{t("gross")}</TableHead>
+                        <TableHead>{t("deductions")}</TableHead>
+                        <TableHead>{t("net")}</TableHead>
+                        <TableHead>{common("status")}</TableHead>
+                        <TableHead className="text-end">{common("actions")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {runs.map((run) => (
+                        <TableRow key={run.id}>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {run.runNo}
+                          </TableCell>
+                          <TableCell>
+                            <p className="text-sm font-medium">{run.period.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDate(run.period.payDate, locale)}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm">
+                              {formatNumber(run.employeeCount, locale)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {" "}
+                              / {formatNumber(run._count.items, locale)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatMoney(run.totalGross, locale, "YER")}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatMoney(run.totalDeductions, locale, "YER")}
+                          </TableCell>
+                          <TableCell className="text-sm font-medium">
+                            {formatMoney(run.totalNet, locale, "YER")}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge value={run.status} group="payrollStatus" />
+                          </TableCell>
+                          <TableCell className="text-end">
+                            <Button asChild size="sm" variant="ghost">
+                              <Link href={`/payroll/${run.id}`}>{common("view")}</Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -267,42 +318,73 @@ export default async function PayrollPage({
                 <EmptyState title={t("noPayslips")} />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("period")}</TableHead>
-                    <TableHead>{t("basicSalary")}</TableHead>
-                    <TableHead>{t("gross")}</TableHead>
-                    <TableHead>{t("deductions")}</TableHead>
-                    <TableHead>{t("net")}</TableHead>
-                    <TableHead>{common("status")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="divide-y md:hidden">
                   {myItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="text-sm font-medium">
-                        {item.run.period.name}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatMoney(item.basicSalary, locale, item.currency)}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {formatMoney(item.grossSalary, locale, item.currency)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatMoney(item.totalDeductions, locale, item.currency)}
-                      </TableCell>
-                      <TableCell className="text-sm font-semibold">
-                        {formatMoney(item.netSalary, locale, item.currency)}
-                      </TableCell>
-                      <TableCell>
+                    <div key={item.id} className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-medium">{item.run.period.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.run.runNo}</p>
+                        </div>
                         <StatusBadge value={item.run.status} group="payrollStatus" />
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">{t("gross")}</p>
+                          <p className="font-medium">
+                            {formatMoney(item.grossSalary, locale, item.currency)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{t("net")}</p>
+                          <p className="font-semibold">
+                            {formatMoney(item.netSalary, locale, item.currency)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("period")}</TableHead>
+                        <TableHead>{t("basicSalary")}</TableHead>
+                        <TableHead>{t("gross")}</TableHead>
+                        <TableHead>{t("deductions")}</TableHead>
+                        <TableHead>{t("net")}</TableHead>
+                        <TableHead>{common("status")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {myItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-sm font-medium">
+                            {item.run.period.name}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatMoney(item.basicSalary, locale, item.currency)}
+                          </TableCell>
+                          <TableCell className="text-sm">
+                            {formatMoney(item.grossSalary, locale, item.currency)}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatMoney(item.totalDeductions, locale, item.currency)}
+                          </TableCell>
+                          <TableCell className="text-sm font-semibold">
+                            {formatMoney(item.netSalary, locale, item.currency)}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge value={item.run.status} group="payrollStatus" />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

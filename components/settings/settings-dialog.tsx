@@ -121,7 +121,14 @@ export function SettingsDialog({
   function submit(event: React.FormEvent) {
     event.preventDefault();
     startTransition(async () => {
-      const result = await action(values);
+      let result: SettingsActionResult;
+      try {
+        result = await action(values);
+      } catch (error) {
+        console.error("Form dialog action failed", error);
+        toast.error(common("error"));
+        return;
+      }
       if (!result.ok) {
         const message =
           (result.error ? errorMessages?.[result.error] : undefined) ??

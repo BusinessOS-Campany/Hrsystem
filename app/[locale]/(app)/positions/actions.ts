@@ -43,28 +43,43 @@ export async function createPositionAction(
     return { ok: false, error: "salaryBand" };
   }
 
-  const department = await prisma.department.findUnique({
-    where: { id: data.departmentId },
+  const department = await prisma.department.findFirst({
+    where: {
+      id: data.departmentId,
+      deletedAt: null,
+      isActive: true,
+    },
+    select: { id: true },
   });
   if (!department) return { ok: false, error: "notFound" };
 
+  const code = data.code.toUpperCase();
   const duplicate = await prisma.position.findFirst({
-    where: { departmentId: data.departmentId, code: data.code },
+    where: { departmentId: data.departmentId, code },
   });
   if (duplicate) return { ok: false, error: "duplicate" };
 
-  const position = await prisma.position.create({
-    data: {
-      departmentId: data.departmentId,
-      name: data.name,
-      nameAr: data.nameAr,
-      code: data.code,
-      grade: data.grade || null,
-      description: data.description || null,
-      minSalary: data.minSalary ?? null,
-      maxSalary: data.maxSalary ?? null,
-    },
-  });
+  let position: { id: string; code: string; name: string };
+  try {
+    position = await prisma.position.create({
+      data: {
+        departmentId: data.departmentId,
+        name: data.name,
+        nameAr: data.nameAr,
+        code,
+        grade: data.grade || null,
+        description: data.description || null,
+        minSalary: data.minSalary ?? null,
+        maxSalary: data.maxSalary ?? null,
+      },
+      select: { id: true, code: true, name: true },
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { ok: false, error: "duplicate" };
+    }
+    throw error;
+  }
 
   await writeAudit({
     userId: user.id,

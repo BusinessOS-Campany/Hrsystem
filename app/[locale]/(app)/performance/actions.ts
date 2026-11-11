@@ -234,10 +234,9 @@ export async function submitSelfReviewAction(
   });
   if (!review) return { ok: false, error: "notFound" };
   if (review.employeeId !== user.employeeId) return { ok: false, error: "forbidden" };
-  if (review.status === "COMPLETED") return { ok: false, error: "completed" };
 
-  await prisma.performanceReview.update({
-    where: { id: reviewId },
+  const submitted = await prisma.performanceReview.updateMany({
+    where: { id: reviewId, status: { in: ["DRAFT", "SELF_REVIEW"] } },
     data: {
       selfRating: parsed.data.selfRating,
       selfComment: parsed.data.selfComment || null,
@@ -245,6 +244,7 @@ export async function submitSelfReviewAction(
       submittedAt: new Date(),
     },
   });
+  if (submitted.count !== 1) return { ok: false, error: "completed" };
 
   const managerUser = review.employee.manager?.user;
   if (managerUser) {
@@ -296,18 +296,20 @@ export async function submitManagerReviewAction(
   });
   if (!review) return { ok: false, error: "notFound" };
 
+  if (review.employeeId === user.employeeId) {
+    return { ok: false, error: "forbidden" };
+  }
   const canViewAll = hasPermission(user, "performance.view_all");
   if (!canViewAll && review.managerId !== user.employeeId) {
     return { ok: false, error: "forbidden" };
   }
-  if (review.status === "COMPLETED") return { ok: false, error: "completed" };
 
   const finalRating = review.selfRating
     ? Number(((review.selfRating + parsed.data.managerRating) / 2).toFixed(2))
     : parsed.data.managerRating;
 
-  await prisma.performanceReview.update({
-    where: { id: reviewId },
+  const completed = await prisma.performanceReview.updateMany({
+    where: { id: reviewId, status: { not: "COMPLETED" } },
     data: {
       managerRating: parsed.data.managerRating,
       managerComment: parsed.data.managerComment || null,
@@ -316,6 +318,7 @@ export async function submitManagerReviewAction(
       completedAt: new Date(),
     },
   });
+  if (completed.count !== 1) return { ok: false, error: "completed" };
 
   if (review.employee.user) {
     await prisma.notification.create({

@@ -204,6 +204,7 @@ export default async function EmployeesPage({
           </div>
         ) : (
           <>
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -292,6 +293,88 @@ export default async function EmployeesPage({
                 })}
               </TableBody>
             </Table>
+            </div>
+
+            <div className="divide-y md:hidden">
+              {employees.map((employee) => {
+                const employment = employee.employments[0];
+                const name = `${employee.firstName} ${employee.lastName}`;
+                const nameAr = `${employee.firstNameAr ?? ""} ${employee.lastNameAr ?? ""}`.trim();
+                return (
+                  <div key={employee.id} className="space-y-2.5 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Avatar className="size-9 shrink-0">
+                          <AvatarFallback className="bg-primary/10 text-[10px] font-semibold text-primary">
+                            {employee.firstName[0]}
+                            {employee.lastName[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <Link
+                            href={`/employees/${employee.id}`}
+                            className="block truncate text-sm font-semibold hover:underline"
+                          >
+                            {localizedName(locale, name, nameAr)}
+                          </Link>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {employee.employeeNo} · {employee.email}
+                          </p>
+                        </div>
+                      </div>
+                      <StatusBadge value={employee.status} group="employmentStatus" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                      <span className="text-muted-foreground">
+                        {t("department")}:{" "}
+                        <span className="text-foreground">
+                          {employment
+                            ? localizedName(
+                                locale,
+                                employment.department.name,
+                                employment.department.nameAr,
+                              )
+                            : "—"}
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t("position")}:{" "}
+                        <span className="text-foreground">
+                          {employment
+                            ? localizedName(
+                                locale,
+                                employment.position.name,
+                                employment.position.nameAr,
+                              )
+                            : "—"}
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t("hireDate")}:{" "}
+                        <span className="text-foreground">
+                          {formatDate(employee.hireDate, locale)}
+                        </span>
+                      </span>
+                      <span className="truncate text-muted-foreground">
+                        {t("manager")}:{" "}
+                        <span className="text-foreground">
+                          {employee.manager
+                            ? localizedName(
+                                locale,
+                                `${employee.manager.firstName} ${employee.manager.lastName}`,
+                                `${employee.manager.firstNameAr ?? ""} ${employee.manager.lastNameAr ?? ""}`.trim(),
+                              )
+                            : "—"}
+                        </span>
+                      </span>
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="w-full">
+                      <Link href={`/employees/${employee.id}`}>{common("view")}</Link>
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
 
             <div className="flex flex-col gap-2 border-t px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-muted-foreground">

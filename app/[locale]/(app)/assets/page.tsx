@@ -247,6 +247,60 @@ export default async function AssetsPage({
     ];
   }
 
+
+  function renderAssetActions(asset: (typeof assets)[number]) {
+    const assignment = asset.assignments[0];
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        <FormDialog
+          title={t("editAsset")}
+          description={`${asset.name} · ${asset.assetTag}`}
+          triggerLabel={common("edit")}
+          successMessage={t("assetUpdated")}
+          fields={assetFields()}
+          initial={assetInitial(asset)}
+          action={updateAssetAction.bind(null, locale, asset.id)}
+          errorMessages={errorMessages}
+          triggerSize="xs"
+          triggerVariant="ghost"
+          wide
+        />
+        {asset.status === "AVAILABLE" && (
+          <FormDialog
+            title={t("assignTo")}
+            description={`${asset.name} · ${asset.assetTag}`}
+            triggerLabel={t("assign")}
+            triggerIcon="plus"
+            successMessage={t("assignedMsg")}
+            fields={assignFields()}
+            initial={{ employeeId: "", notes: "" }}
+            action={assignAssetAction.bind(null, locale, asset.id)}
+            errorMessages={errorMessages}
+            triggerSize="xs"
+            triggerVariant="ghost"
+          />
+        )}
+        {asset.status === "ASSIGNED" && assignment && (
+          <FormDialog
+            title={t("returnAsset")}
+            description={`${asset.name} · ${asset.assetTag}`}
+            triggerLabel={t("returnAsset")}
+            successMessage={t("returnedMsg")}
+            fields={returnFields()}
+            initial={{
+              returnCondition: asset.condition,
+              notes: "",
+            }}
+            action={returnAssetAction.bind(null, locale, asset.id)}
+            errorMessages={errorMessages}
+            triggerSize="xs"
+            triggerVariant="ghost"
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -319,7 +373,50 @@ export default async function AssetsPage({
               <EmptyState title={t("noAssets")} />
             </div>
           ) : (
-            <Table>
+            <>
+              <div className="divide-y md:hidden">
+                {assets.map((asset) => {
+                  const assignment = asset.assignments[0];
+                  return (
+                    <div key={asset.id} className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{asset.name}</p>
+                          <p className="font-mono text-xs text-muted-foreground">
+                            {asset.assetTag} · {asset.serialNumber ?? "—"}
+                          </p>
+                        </div>
+                        <StatusBadge value={asset.status} group="assetStatus" />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <Badge variant="outline">{asset.category}</Badge>
+                        <StatusBadge value={asset.condition} group="assetCondition" />
+                        <span>{formatMoney(asset.purchaseCost, locale, "YER")}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {t("assignedTo")}:{" "}
+                        {assignment ? (
+                          <Link
+                            href={`/employees/${assignment.employeeId}`}
+                            className="font-medium text-foreground hover:underline"
+                          >
+                            {localizedName(
+                              locale,
+                              `${assignment.employee.firstName} ${assignment.employee.lastName}`,
+                              `${assignment.employee.firstNameAr ?? ""} ${assignment.employee.lastNameAr ?? ""}`.trim(),
+                            )}
+                          </Link>
+                        ) : (
+                          t("available")
+                        )}
+                      </div>
+                      {canManage && renderAssetActions(asset)}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="hidden md:block">
+                <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("assetTag")}</TableHead>
@@ -373,61 +470,15 @@ export default async function AssetsPage({
                         {formatMoney(asset.purchaseCost, locale, "YER")}
                       </TableCell>
                       {canManage && (
-                        <TableCell>
-                          <div className="flex flex-wrap items-center gap-1">
-                            <FormDialog
-                              title={t("editAsset")}
-                              description={`${asset.name} · ${asset.assetTag}`}
-                              triggerLabel={common("edit")}
-                              successMessage={t("assetUpdated")}
-                              fields={assetFields()}
-                              initial={assetInitial(asset)}
-                              action={updateAssetAction.bind(null, locale, asset.id)}
-                              errorMessages={errorMessages}
-                              triggerSize="xs"
-                              triggerVariant="ghost"
-                              wide
-                            />
-                            {asset.status === "AVAILABLE" && (
-                              <FormDialog
-                                title={t("assignTo")}
-                                description={`${asset.name} · ${asset.assetTag}`}
-                                triggerLabel={t("assign")}
-                                triggerIcon="plus"
-                                successMessage={t("assignedMsg")}
-                                fields={assignFields()}
-                                initial={{ employeeId: "", notes: "" }}
-                                action={assignAssetAction.bind(null, locale, asset.id)}
-                                errorMessages={errorMessages}
-                                triggerSize="xs"
-                                triggerVariant="ghost"
-                              />
-                            )}
-                            {asset.status === "ASSIGNED" && assignment && (
-                              <FormDialog
-                                title={t("returnAsset")}
-                                description={`${asset.name} · ${asset.assetTag}`}
-                                triggerLabel={t("returnAsset")}
-                                successMessage={t("returnedMsg")}
-                                fields={returnFields()}
-                                initial={{
-                                  returnCondition: asset.condition,
-                                  notes: "",
-                                }}
-                                action={returnAssetAction.bind(null, locale, asset.id)}
-                                errorMessages={errorMessages}
-                                triggerSize="xs"
-                                triggerVariant="ghost"
-                              />
-                            )}
-                          </div>
-                        </TableCell>
+                        <TableCell>{renderAssetActions(asset)}</TableCell>
                       )}
                     </TableRow>
                   );
                 })}
               </TableBody>
-            </Table>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

@@ -561,6 +561,63 @@ export default async function RecruitmentPage({
     };
   }
 
+
+  function renderApplicationActions(application: (typeof applications)[number]) {
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        <FormDialog
+          title={t("moveStage")}
+          description={`${application.candidate.firstName} ${application.candidate.lastName}`}
+          triggerLabel={t("moveStage")}
+          successMessage={t("stageUpdated")}
+          fields={stageFields()}
+          initial={{
+            stage: application.stage,
+            rating:
+              application.rating != null ? String(application.rating) : "",
+            notes: application.notes ?? "",
+          }}
+          action={updateApplicationStageAction.bind(null, locale, application.id)}
+          errorMessages={errorMessages}
+          triggerSize="xs"
+          triggerVariant="ghost"
+        />
+        {application.status === "ACTIVE" && (
+          <>
+            <FormDialog
+              title={t("scheduleInterview")}
+              description={`${application.candidate.firstName} ${application.candidate.lastName}`}
+              triggerLabel={t("interview")}
+              triggerIcon="plus"
+              successMessage={t("interviewScheduled")}
+              fields={interviewFields()}
+              initial={interviewInitial()}
+              action={scheduleInterviewAction.bind(null, locale, application.id)}
+              errorMessages={errorMessages}
+              triggerSize="xs"
+              triggerVariant="ghost"
+            />
+            <FormDialog
+              title={application.offer ? t("updateOffer") : t("makeOffer")}
+              description={`${application.candidate.firstName} ${application.candidate.lastName}`}
+              triggerLabel={application.offer ? t("updateOffer") : t("makeOffer")}
+              triggerIcon={application.offer ? "edit" : "plus"}
+              successMessage={
+                application.offer ? t("offerUpdated") : t("offerCreated")
+              }
+              fields={offerFields()}
+              initial={offerInitial(application)}
+              action={saveOfferAction.bind(null, locale, application.id)}
+              errorMessages={errorMessages}
+              triggerSize="xs"
+              triggerVariant="ghost"
+            />
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -664,10 +721,63 @@ export default async function RecruitmentPage({
                 <EmptyState title={t("noVacancies")} />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("vacancy")}</TableHead>
+            <>
+              <div className="divide-y md:hidden">
+                {vacancies.map((vacancy) => (
+                  <div key={vacancy.id} className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {localizedName(locale, vacancy.title, vacancy.titleAr)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {localizedName(
+                            locale,
+                            vacancy.department.name,
+                            vacancy.department.nameAr,
+                          )}
+                        </p>
+                      </div>
+                      <StatusBadge value={vacancy.status} group="vacancyStatus" />
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        {t("openings")}: {vacancy.openings}
+                      </span>
+                      <span>
+                        {t("closingDate")}: {formatDate(vacancy.closingDate, locale)}
+                      </span>
+                      <span>
+                        {vacancy._count.applications} {t("applications")}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium">
+                      {formatMoney(vacancy.salaryMin, locale, vacancy.currency)} –{" "}
+                      {formatMoney(vacancy.salaryMax, locale, vacancy.currency)}
+                    </p>
+                    {canUpdate && (
+                      <FormDialog
+                        title={t("editVacancy")}
+                        description={t("subtitle")}
+                        triggerLabel={common("edit")}
+                        successMessage={t("vacancyUpdated")}
+                        fields={vacancyFields()}
+                        initial={vacancyInitial(vacancy)}
+                        action={updateVacancyAction.bind(null, locale, vacancy.id)}
+                        errorMessages={errorMessages}
+                        triggerSize="xs"
+                        triggerVariant="ghost"
+                        wide
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("vacancy")}</TableHead>
                     <TableHead>{t("department")}</TableHead>
                     <TableHead>{t("openings")}</TableHead>
                     <TableHead>{t("salaryRange")}</TableHead>
@@ -727,8 +837,10 @@ export default async function RecruitmentPage({
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            )}
+                </Table>
+              </div>
+            </>
+          )}
           </CardContent>
         </Card>
 
@@ -806,10 +918,49 @@ export default async function RecruitmentPage({
               <EmptyState title={t("noApplications")} />
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("candidate")}</TableHead>
+            <>
+              <div className="divide-y md:hidden">
+                {applications.map((application) => (
+                  <div key={application.id} className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {application.candidate.firstName}{" "}
+                          {application.candidate.lastName}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {application.candidate.email}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{application.status}</Badge>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {localizedName(
+                        locale,
+                        application.vacancy.title,
+                        application.vacancy.titleAr,
+                      )}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <StatusBadge
+                        value={application.stage}
+                        group="applicationStage"
+                      />
+                      <span>{formatDate(application.appliedAt, locale)}</span>
+                      <span>
+                        {t("rating")}:{" "}
+                        {application.rating ? `${application.rating}/5` : "—"}
+                      </span>
+                    </div>
+                    {canUpdate && renderApplicationActions(application)}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("candidate")}</TableHead>
                   <TableHead>{t("vacancy")}</TableHead>
                   <TableHead>{t("stage")}</TableHead>
                   <TableHead>{t("appliedOn")}</TableHead>
@@ -850,76 +1001,16 @@ export default async function RecruitmentPage({
                       <Badge variant="outline">{application.status}</Badge>
                     </TableCell>
                     {canUpdate && (
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-1">
-                          <FormDialog
-                            title={t("moveStage")}
-                            description={`${application.candidate.firstName} ${application.candidate.lastName}`}
-                            triggerLabel={t("moveStage")}
-                            successMessage={t("stageUpdated")}
-                            fields={stageFields()}
-                            initial={{
-                              stage: application.stage,
-                              rating:
-                                application.rating != null
-                                  ? String(application.rating)
-                                  : "",
-                              notes: application.notes ?? "",
-                            }}
-                            action={updateApplicationStageAction.bind(
-                              null,
-                              locale,
-                              application.id,
-                            )}
-                            errorMessages={errorMessages}
-                            triggerSize="xs"
-                            triggerVariant="ghost"
-                          />
-                          {application.status === "ACTIVE" && (
-                            <>
-                              <FormDialog
-                                title={t("scheduleInterview")}
-                                description={`${application.candidate.firstName} ${application.candidate.lastName}`}
-                                triggerLabel={t("interview")}
-                                triggerIcon="plus"
-                                successMessage={t("interviewScheduled")}
-                                fields={interviewFields()}
-                                initial={interviewInitial()}
-                                action={scheduleInterviewAction.bind(
-                                  null,
-                                  locale,
-                                  application.id,
-                                )}
-                                errorMessages={errorMessages}
-                                triggerSize="xs"
-                                triggerVariant="ghost"
-                              />
-                              <FormDialog
-                                title={application.offer ? t("updateOffer") : t("makeOffer")}
-                                description={`${application.candidate.firstName} ${application.candidate.lastName}`}
-                                triggerLabel={application.offer ? t("updateOffer") : t("makeOffer")}
-                                triggerIcon={application.offer ? "edit" : "plus"}
-                                successMessage={
-                                  application.offer ? t("offerUpdated") : t("offerCreated")
-                                }
-                                fields={offerFields()}
-                                initial={offerInitial(application)}
-                                action={saveOfferAction.bind(null, locale, application.id)}
-                                errorMessages={errorMessages}
-                                triggerSize="xs"
-                                triggerVariant="ghost"
-                              />
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
+                      <TableCell>{renderApplicationActions(application)}</TableCell>
                     )}
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+                </Table>
+              </div>
+            </>
           )}
-        </CardContent>
+          </CardContent>
       </Card>
     </div>
   );

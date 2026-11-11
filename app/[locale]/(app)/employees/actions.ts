@@ -2,6 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, hasPermission } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
@@ -43,8 +44,8 @@ function temporaryPassword() {
   return `Hrsys@${randomBytes(4).toString("hex")}!`;
 }
 
-async function nextEmployeeNo() {
-  const latest = await prisma.employee.findFirst({
+async function nextEmployeeNo(db: Prisma.TransactionClient) {
+  const latest = await db.employee.findFirst({
     orderBy: { employeeNo: "desc" },
     select: { employeeNo: true },
   });
@@ -53,7 +54,7 @@ async function nextEmployeeNo() {
   return `EMP-${String(next).padStart(4, "0")}`;
 }
 
-async function uniqueUsername(email: string) {
+async function uniqueUsername(db: Prisma.TransactionClient, email: string) {
   const base = email
     .split("@")[0]
     .toLowerCase()
@@ -61,11 +62,40 @@ async function uniqueUsername(email: string) {
     .slice(0, 24);
   let username = base || "user";
   let suffix = 1;
-  while (await prisma.user.findUnique({ where: { username } })) {
+  while (await db.user.findUnique({ where: { username } })) {
     username = `${base}${suffix}`;
     suffix += 1;
   }
   return username;
+}
+
+const TRANSACTION_OPTIONS = {
+  isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+  maxWait: 5_000,
+  timeout: 15_000,
+} as const;
+
+function isRetryable(error: unknown) {
+  return (error as { code?: string }).code === "P2034";
+}
+
+async function serializable<T>(run: () => Promise<T>) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await run();
+    } catch (error) {
+      lastError = error;
+      if (!isRetryable(error) || attempt === 2) throw error;
+    }
+  }
+  throw lastError;
+}
+
+function uniqueTarget(error: unknown) {
+  const target = (error as { meta?: { target?: string[] | string } }).meta
+    ?.target;
+  return Array.isArray(target) ? target.join(",") : target ?? "";
 }
 
 export async function createEmployeeAction(
@@ -106,119 +136,156 @@ export async function createEmployeeAction(
   }
 
   const email = data.email.toLowerCase();
-  if (await prisma.employee.findUnique({ where: { email } })) {
-    return { ok: false, error: "duplicateEmail" };
-  }
-  if (
-    data.nationalId &&
-    (await prisma.employee.findUnique({ where: { nationalId: data.nationalId } }))
-  ) {
-    return { ok: false, error: "duplicateNationalId" };
-  }
-  if (await prisma.user.findUnique({ where: { email } })) {
-    return { ok: false, error: "duplicateEmail" };
-  }
-
-  const employeeNo = await nextEmployeeNo();
   const hireDate = dateOnly(data.hireDate);
   if (!hireDate) return { ok: false, error: "validation" };
 
   const tempPassword = data.createAccount ? temporaryPassword() : undefined;
   const passwordHash = tempPassword ? await hashPassword(tempPassword) : null;
-  const username = data.createAccount ? await uniqueUsername(email) : null;
   const role = data.createAccount
     ? await prisma.role.findUnique({ where: { code: data.roleCode ?? "EMPLOYEE" } })
     : null;
+  if (data.createAccount && (!passwordHash || !role)) {
+    return { ok: false, error: "validation" };
+  }
 
   try {
-    const employee = await prisma.$transaction(async (tx) => {
-      const created = await tx.employee.create({
-        data: {
-          employeeNo,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          firstNameAr: data.firstNameAr || null,
-          lastNameAr: data.lastNameAr || null,
-          gender: data.gender,
-          dateOfBirth: dateOnly(data.dateOfBirth),
-          nationality: data.nationality || null,
-          nationalId: data.nationalId || null,
-          maritalStatus: data.maritalStatus,
-          phone: data.phone || null,
-          email,
-          address: data.address || null,
-          city: data.city || null,
-          country: data.country || company.country,
-          emergencyName: data.emergencyName || null,
-          emergencyPhone: data.emergencyPhone || null,
-          emergencyRelation: data.emergencyRelation || null,
-          status: "ACTIVE",
-          hireDate,
-          managerId: data.managerId || null,
-        },
-      });
+    const result = await serializable(() =>
+      prisma.$transaction(async (tx) => {
+        const db = tx as unknown as Prisma.TransactionClient;
+        if (await tx.employee.findUnique({ where: { email } })) {
+          return { ok: false as const, error: "duplicateEmail" as const };
+        }
+        if (await tx.user.findUnique({ where: { email } })) {
+          return { ok: false as const, error: "duplicateEmail" as const };
+        }
+        if (
+          data.nationalId &&
+          (await tx.employee.findUnique({
+            where: { nationalId: data.nationalId },
+          }))
+        ) {
+          return { ok: false as const, error: "duplicateNationalId" as const };
+        }
 
-      await tx.employment.create({
-        data: {
-          employeeId: created.id,
-          companyId: company.id,
-          branchId: branch.id,
-          departmentId: department.id,
-          positionId: position.id,
-          managerId: data.managerId || null,
-          employmentType: data.employmentType,
-          status: "ACTIVE",
-          hireDate,
-          contractStart: hireDate,
-          basicSalary: data.basicSalary,
-          currency: company.currency,
-          isCurrent: true,
-        },
-      });
-
-      if (data.createAccount && passwordHash && username && role) {
-        await tx.user.create({
+        const employeeNo = await nextEmployeeNo(db);
+        const username = data.createAccount
+          ? await uniqueUsername(db, email)
+          : null;
+        const created = await tx.employee.create({
           data: {
+            employeeNo,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            firstNameAr: data.firstNameAr || null,
+            lastNameAr: data.lastNameAr || null,
+            gender: data.gender,
+            dateOfBirth: dateOnly(data.dateOfBirth),
+            nationality: data.nationality || null,
+            nationalId: data.nationalId || null,
+            maritalStatus: data.maritalStatus,
+            phone: data.phone || null,
             email,
-            username,
-            passwordHash,
-            name: `${data.firstName} ${data.lastName}`,
-            nameAr: `${data.firstNameAr ?? ""} ${data.lastNameAr ?? ""}`.trim() || null,
-            employeeId: created.id,
-            isActive: true,
-            mustChangePassword: true,
-            roles: { create: { roleId: role.id } },
+            address: data.address || null,
+            city: data.city || null,
+            country: data.country || company.country,
+            emergencyName: data.emergencyName || null,
+            emergencyPhone: data.emergencyPhone || null,
+            emergencyRelation: data.emergencyRelation || null,
+            status: "ACTIVE",
+            hireDate,
+            managerId: data.managerId || null,
           },
         });
-      }
 
-      const leaveTypes = await tx.leaveType.findMany({ where: { isActive: true } });
-      if (leaveTypes.length > 0) {
-        await tx.leaveBalance.createMany({
-          data: leaveTypes.map((leaveType) => ({
+        await tx.employment.create({
+          data: {
             employeeId: created.id,
-            leaveTypeId: leaveType.id,
-            year: hireDate.getUTCFullYear(),
-            entitledDays: leaveType.maxDaysPerYear ?? 0,
-          })),
+            companyId: company.id,
+            branchId: branch.id,
+            departmentId: department.id,
+            positionId: position.id,
+            managerId: data.managerId || null,
+            employmentType: data.employmentType,
+            status: "ACTIVE",
+            hireDate,
+            contractStart: hireDate,
+            basicSalary: data.basicSalary,
+            currency: company.currency,
+            isCurrent: true,
+          },
         });
-      }
 
-      return created;
-    });
+        if (data.createAccount && passwordHash && username && role) {
+          await tx.user.create({
+            data: {
+              email,
+              username,
+              passwordHash,
+              name: `${data.firstName} ${data.lastName}`,
+              nameAr:
+                `${data.firstNameAr ?? ""} ${data.lastNameAr ?? ""}`.trim() ||
+                null,
+              employeeId: created.id,
+              isActive: true,
+              mustChangePassword: true,
+              roles: { create: { roleId: role.id } },
+            },
+          });
+        }
+
+        const leaveTypes = await tx.leaveType.findMany({
+          where: { isActive: true, maxDaysPerYear: { not: null } },
+        });
+        const balanceYear = new Date().getUTCFullYear();
+        if (leaveTypes.length > 0) {
+          await tx.leaveBalance.createMany({
+            data: leaveTypes.map((leaveType) => ({
+              employeeId: created.id,
+              leaveTypeId: leaveType.id,
+              year: balanceYear,
+              entitledDays: leaveType.maxDaysPerYear ?? 0,
+            })),
+          });
+        }
+
+        return { ok: true as const, employee: created, employeeNo };
+      }, TRANSACTION_OPTIONS),
+    );
+
+    if (!result.ok) return result;
 
     await writeAudit({
       userId: actor.id,
       action: "CREATE",
       entity: "Employee",
-      entityId: employee.id,
-      newData: { employeeNo, email, departmentId: department.id },
+      entityId: result.employee.id,
+      newData: {
+        employeeNo: result.employeeNo,
+        email,
+        departmentId: department.id,
+      },
     });
 
     revalidatePath(`/${locale}/employees`);
     revalidatePath(`/${locale}/dashboard`);
-    return { ok: true, employeeId: employee.id, tempPassword };
-  } catch {
+    return {
+      ok: true,
+      employeeId: result.employee.id,
+      tempPassword,
+    };
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      const target = uniqueTarget(error);
+      return {
+        ok: false,
+        error: target.includes("nationalId")
+          ? "duplicateNationalId"
+          : target.includes("email") || target.includes("username")
+            ? "duplicateEmail"
+            : "validation",
+      };
+    }
+    console.error("Failed to create employee", error);
     return { ok: false, error: "validation" };
   }
 }
@@ -237,10 +304,11 @@ export async function updateEmployeeAction(
   if (!parsed.success) return { ok: false, error: "validation" };
   const data = parsed.data;
 
-  const existing = await prisma.employee.findUnique({
-    where: { id: employeeId },
+  const existing = await prisma.employee.findFirst({
+    where: { id: employeeId, deletedAt: null },
     include: {
       employments: { where: { isCurrent: true }, take: 1 },
+      user: { select: { id: true } },
     },
   });
   if (!existing) return { ok: false, error: "notFound" };
@@ -268,6 +336,22 @@ export async function updateEmployeeAction(
     where: { email, id: { not: employeeId } },
   });
   if (duplicate) return { ok: false, error: "duplicateEmail" };
+  if (data.nationalId) {
+    const duplicateNationalId = await prisma.employee.findFirst({
+      where: { nationalId: data.nationalId, id: { not: employeeId } },
+      select: { id: true },
+    });
+    if (duplicateNationalId) {
+      return { ok: false, error: "duplicateNationalId" };
+    }
+  }
+  if (existing.user) {
+    const duplicateUserEmail = await prisma.user.findFirst({
+      where: { email, id: { not: existing.user.id } },
+      select: { id: true },
+    });
+    if (duplicateUserEmail) return { ok: false, error: "duplicateEmail" };
+  }
 
   const hireDate = dateOnly(data.hireDate);
   if (!hireDate) return { ok: false, error: "validation" };
@@ -367,7 +451,19 @@ export async function updateEmployeeAction(
     revalidatePath(`/${locale}/employees`);
     revalidatePath(`/${locale}/employees/${employeeId}`);
     return { ok: true, employeeId };
-  } catch {
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      const target = uniqueTarget(error);
+      return {
+        ok: false,
+        error: target.includes("nationalId")
+          ? "duplicateNationalId"
+          : target.includes("email") || target.includes("username")
+            ? "duplicateEmail"
+            : "validation",
+      };
+    }
+    console.error("Failed to update employee", error);
     return { ok: false, error: "validation" };
   }
 }

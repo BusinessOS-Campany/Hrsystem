@@ -36,23 +36,72 @@ export async function createDepartmentAction(
   const company = await prisma.company.findFirst({ where: { isActive: true } });
   if (!company) return { ok: false, error: "notFound" };
 
+  const branchId = parsed.data.branchId || null;
+  const parentId = parsed.data.parentId || null;
+  const managerId = parsed.data.managerId || null;
+  const [branch, parent, manager] = await Promise.all([
+    branchId
+      ? prisma.branch.findFirst({
+          where: { id: branchId, companyId: company.id, isActive: true },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    parentId
+      ? prisma.department.findFirst({
+          where: {
+            id: parentId,
+            companyId: company.id,
+            deletedAt: null,
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+    managerId
+      ? prisma.employee.findFirst({
+          where: {
+            id: managerId,
+            deletedAt: null,
+            status: { in: ["ACTIVE", "PROBATION"] },
+          },
+          select: { id: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  if (
+    (branchId && !branch) ||
+    (parentId && !parent) ||
+    (managerId && !manager)
+  ) {
+    return { ok: false, error: "notFound" };
+  }
+
+  const code = parsed.data.code.toUpperCase();
   const duplicate = await prisma.department.findFirst({
-    where: { companyId: company.id, code: parsed.data.code },
+    where: { companyId: company.id, code },
   });
   if (duplicate) return { ok: false, error: "duplicate" };
 
-  const department = await prisma.department.create({
-    data: {
-      companyId: company.id,
-      branchId: parsed.data.branchId || null,
-      parentId: parsed.data.parentId || null,
-      managerId: parsed.data.managerId || null,
-      name: parsed.data.name,
-      nameAr: parsed.data.nameAr,
-      code: parsed.data.code,
-      description: parsed.data.description || null,
-    },
-  });
+  let department: { id: string; code: string; name: string };
+  try {
+    department = await prisma.department.create({
+      data: {
+        companyId: company.id,
+        branchId,
+        parentId,
+        managerId,
+        name: parsed.data.name,
+        nameAr: parsed.data.nameAr,
+        code,
+        description: parsed.data.description || null,
+      },
+      select: { id: true, code: true, name: true },
+    });
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { ok: false, error: "duplicate" };
+    }
+    throw error;
+  }
 
   await writeAudit({
     userId: user.id,

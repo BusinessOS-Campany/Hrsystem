@@ -56,7 +56,9 @@ export default async function ReportsPage({
   const now = new Date();
   const year = now.getUTCFullYear();
   const monthStart = startOfMonth(now);
+  const monthEnd = new Date(Date.UTC(year, now.getUTCMonth() + 1, 1));
   const yearStart = new Date(Date.UTC(year, 0, 1));
+  const yearEnd = new Date(Date.UTC(year + 1, 0, 1));
 
   const activeStatusList: EmploymentStatus[] = ["ACTIVE", "PROBATION", "ON_LEAVE"];
   const [
@@ -101,12 +103,15 @@ export default async function ReportsPage({
     }),
     prisma.attendance.groupBy({
       by: ["status"],
-      where: { date: { gte: monthStart } },
+      where: { date: { gte: monthStart, lt: monthEnd } },
       _count: { _all: true },
     }),
     prisma.leaveRequest.groupBy({
       by: ["leaveTypeId"],
-      where: { status: "APPROVED", startDate: { gte: yearStart } },
+      where: {
+        status: "APPROVED",
+        startDate: { gte: yearStart, lt: yearEnd },
+      },
       _sum: { days: true },
       orderBy: { _sum: { days: "desc" } },
     }),
@@ -114,6 +119,7 @@ export default async function ReportsPage({
       select: { id: true, name: true, nameAr: true },
     }),
     prisma.payrollRun.findFirst({
+      where: { status: { in: ["FINALIZED", "PAID"] } },
       orderBy: [{ period: { startDate: "desc" } }],
       select: { totalNet: true, period: { select: { name: true } } },
     }),

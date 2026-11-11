@@ -68,11 +68,265 @@ export default async function DashboardPage({
 
   const activeStatuses = ["ACTIVE", "PROBATION", "ON_LEAVE"] as const;
   const activeStatusList = [...activeStatuses];
+  const canViewPayroll = hasPermission(user, "payroll.view_all");
+  const canViewOrg =
+    hasPermission(user, "employee.view_all") ||
+    hasPermission(user, "leave.view_all") ||
+    hasPermission(user, "audit.view");
+  const canViewSelfPayroll =
+    hasPermission(user, "payroll.view_self") || Boolean(user.employeeId);
+  const can = (permission: string) => hasPermission(user, permission);
   const onLeaveWhere = {
     status: "APPROVED" as const,
     startDate: { lte: today },
     endDate: { gte: today },
   };
+
+  if (!canViewOrg) {
+    const employeeId = user.employeeId ?? "__none__";
+    const [myAttendance, myLeaveBalances, myPendingLeave, myRecentLeave, myPayslip] =
+      await Promise.all([
+        prisma.attendance.groupBy({
+          by: ["status"],
+          where: { employeeId, date: { gte: monthStart, lte: today } },
+          _count: { _all: true },
+        }),
+        user.employeeId
+          ? prisma.leaveBalance.findMany({
+              where: { employeeId, year: today.getUTCFullYear() },
+              select: {
+                entitledDays: true,
+                carriedDays: true,
+                usedDays: true,
+                pendingDays: true,
+                leaveType: { select: { maxDaysPerYear: true } },
+              },
+            })
+          : Promise.resolve([]),
+        user.employeeId
+          ? prisma.leaveRequest.aggregate({
+              where: {
+                employeeId,
+                status: { in: ["PENDING_MANAGER", "PENDING_HR"] },
+              },
+              _count: { _all: true },
+              _sum: { days: true },
+            })
+          : Promise.resolve({ _count: { _all: 0 }, _sum: { days: null } }),
+        user.employeeId
+          ? prisma.leaveRequest.findMany({
+              where: { employeeId },
+              select: {
+                id: true,
+                requestNo: true,
+                startDate: true,
+                endDate: true,
+                days: true,
+                status: true,
+                leaveType: { select: { name: true, nameAr: true } },
+              },
+              orderBy: { createdAt: "desc" },
+              take: 4,
+            })
+          : Promise.resolve([]),
+        user.employeeId && canViewSelfPayroll
+          ? prisma.payrollItem.findFirst({
+              where: {
+                employeeId,
+                run: { status: { in: ["FINALIZED", "PAID"] } },
+              },
+              select: {
+                netSalary: true,
+                currency: true,
+                run: {
+                  select: {
+                    runNo: true,
+                    period: { select: { name: true } },
+                  },
+                },
+              },
+              orderBy: { createdAt: "desc" },
+            })
+          : Promise.resolve(null),
+      ]);
+
+    const attendanceCounts = Object.fromEntries(
+      myAttendance.map((row) => [row.status, row._count._all]),
+    ) as Record<string, number>;
+    const presentDays =
+      (attendanceCounts.PRESENT ?? 0) + (attendanceCounts.LATE ?? 0);
+    const lateDays = attendanceCounts.LATE ?? 0;
+    const remainingDays = myLeaveBalances.reduce((sum, balance) => {
+      if (balance.leaveType.maxDaysPerYear === null) return sum;
+      return (
+        sum +
+        Math.max(
+          0,
+          Number(balance.entitledDays) +
+            Number(balance.carriedDays) -
+            Number(balance.usedDays) -
+            Number(balance.pendingDays),
+        )
+      );
+    }, 0);
+    const pendingCount = myPendingLeave._count._all;
+    const pendingDays = Number(myPendingLeave._sum.days ?? 0);
+
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title={t("welcomeBack", {
+            name: localizedName(locale, user.name, user.nameAr),
+          })}
+          description={`${formatDate(today, locale)} · ${t("welcomeHint")}`}
+          actions={
+            <div className="flex flex-wrap gap-2">
+              {can("leave.request") && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/leave">
+                    <CalendarDays className="size-4" /> {t("viewMyLeave")}
+                  </Link>
+                </Button>
+              )}
+              {can("attendance.self") && (
+                <Button asChild size="sm" variant="outline">
+                  <Link href="/attendance">
+                    <Clock3 className="size-4" /> {t("viewMyAttendance")}
+                  </Link>
+                </Button>
+              )}
+            </div>
+          }
+        />
+
+        {!user.employeeId && (
+          <Card>
+            <CardContent className="p-6">
+              <EmptyState title={t("noEmployeeProfile")} />
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label={t("myAttendance")}
+            value={formatNumber(presentDays, locale)}
+            hint={`${t("presentThisMonth")}${lateDays > 0 ? ` · ${formatNumber(lateDays, locale)} ${t("late")}` : ""}`}
+            icon={<UserCheck className="size-5" />}
+            tone="positive"
+          />
+          <StatCard
+            label={t("myPendingLeave")}
+            value={formatNumber(pendingCount, locale)}
+            hint={`${formatNumber(pendingDays, locale)} ${t("pendingDays")}`}
+            icon={<CalendarClock className="size-5" />}
+            tone="warning"
+          />
+          <StatCard
+            label={t("myLeaveBalance")}
+            value={formatNumber(remainingDays, locale)}
+            hint={t("remainingDays")}
+            icon={<CalendarDays className="size-5" />}
+            tone="info"
+          />
+          <StatCard
+            label={t("myLatestPayslip")}
+            value={
+              myPayslip
+                ? formatMoney(myPayslip.netSalary, locale, myPayslip.currency)
+                : "—"
+            }
+            hint={
+              myPayslip
+                ? `${myPayslip.run.period.name} · ${myPayslip.run.runNo}`
+                : t("noPayslipYet")
+            }
+            icon={<Wallet className="size-5" />}
+          />
+        </div>
+
+        <Card>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>{t("myRecentLeave")}</CardTitle>
+              <CardDescription>{t("subtitle")}</CardDescription>
+            </div>
+            {can("leave.view") && (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/leave">{common("view")}</Link>
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="p-0">
+            {myRecentLeave.length === 0 ? (
+              <div className="p-6">
+                <EmptyState title={t("noRecentLeave")} />
+              </div>
+            ) : (
+              <div className="divide-y">
+                {myRecentLeave.map((request) => (
+                  <div
+                    key={request.id}
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {localizedName(
+                          locale,
+                          request.leaveType.name,
+                          request.leaveType.nameAr,
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(request.startDate, locale)} –{" "}
+                        {formatDate(request.endDate, locale)} ·{" "}
+                        {formatNumber(request.days, locale)} {common("days")}
+                      </p>
+                    </div>
+                    <StatusBadge value={request.status} group="leaveStatus" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("quickActions")}</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {can("leave.request") && (
+              <Button asChild variant="outline" className="justify-start">
+                <Link href="/leave">
+                  <CalendarDays className="size-4" /> {nav("leave")}
+                </Link>
+              </Button>
+            )}
+            {can("attendance.self") && (
+              <Button asChild variant="outline" className="justify-start">
+                <Link href="/attendance">
+                  <Clock3 className="size-4" /> {nav("attendance")}
+                </Link>
+              </Button>
+            )}
+            {can("payroll.view_self") && (
+              <Button asChild variant="outline" className="justify-start">
+                <Link href="/payroll">
+                  <Wallet className="size-4" /> {nav("payroll")}
+                </Link>
+              </Button>
+            )}
+            <Button asChild variant="outline" className="justify-start">
+              <Link href="/profile">
+                <Users className="size-4" /> {common("profile")}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const [
     statusCounts,
@@ -131,17 +385,19 @@ export default async function DashboardPage({
       orderBy: { contractEnd: "asc" },
       take: 6,
     }),
-    prisma.payrollRun.findMany({
-      orderBy: [{ period: { startDate: "desc" } }, { createdAt: "desc" }],
-      select: {
-        employeeCount: true,
-        totalGross: true,
-        totalNet: true,
-        status: true,
-        period: { select: { name: true } },
-      },
-      take: 2,
-    }),
+    canViewPayroll
+      ? prisma.payrollRun.findMany({
+          orderBy: [{ period: { startDate: "desc" } }, { createdAt: "desc" }],
+          select: {
+            employeeCount: true,
+            totalGross: true,
+            totalNet: true,
+            status: true,
+            period: { select: { name: true } },
+          },
+          take: 2,
+        })
+      : Promise.resolve([]),
     prisma.attendance.groupBy({
       by: ["date", "status"],
       where: { date: { gte: addDays(today, -21) } },
@@ -305,8 +561,6 @@ export default async function DashboardPage({
   const payrollDelta =
     previousNet > 0 ? Math.round(((latestNet - previousNet) / previousNet) * 100) : 0;
 
-  const can = (permission: string) => hasPermission(user, permission);
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -392,17 +646,19 @@ export default async function DashboardPage({
           icon={<CalendarClock className="size-5" />}
           tone="warning"
         />
-        <StatCard
-          label={t("netPayroll")}
-          value={latestRun ? formatMoney(latestNet, locale, "YER") : "—"}
-          hint={
-            latestRun
-              ? `${latestRun.period.name} · ${payrollDelta >= 0 ? "+" : ""}${payrollDelta}%`
-              : t("noPayroll")
-          }
-          icon={<CircleDollarSign className="size-5" />}
-          tone="positive"
-        />
+        {canViewPayroll && (
+          <StatCard
+            label={t("netPayroll")}
+            value={latestRun ? formatMoney(latestNet, locale, "YER") : "—"}
+            hint={
+              latestRun
+                ? `${latestRun.period.name} · ${payrollDelta >= 0 ? "+" : ""}${payrollDelta}%`
+                : t("noPayroll")
+            }
+            icon={<CircleDollarSign className="size-5" />}
+            tone="positive"
+          />
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -447,6 +703,7 @@ export default async function DashboardPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
+        {canViewPayroll && (
         <Card>
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -491,6 +748,7 @@ export default async function DashboardPage({
             )}
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader>

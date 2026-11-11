@@ -183,44 +183,87 @@ export default async function DepartmentsPage({
                 <EmptyState title={t("noDepartments")} />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("name")}</TableHead>
-                    <TableHead>{t("code")}</TableHead>
-                    <TableHead>{t("manager")}</TableHead>
-                    <TableHead className="hidden md:table-cell">{t("parent")}</TableHead>
-                    <TableHead>{t("headcount")}</TableHead>
-                    <TableHead>{t("positions")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="divide-y md:hidden">
                   {departments.map((department) => (
-                    <TableRow key={department.id}>
-                      <TableCell className="font-medium">
-                        {localizedName(locale, department.name, department.nameAr)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">{department.code}</TableCell>
-                      <TableCell>
-                        {department.manager
-                          ? localizedName(
-                              locale,
-                              `${department.manager.firstName} ${department.manager.lastName}`,
-                              `${department.manager.firstNameAr ?? ""} ${department.manager.lastNameAr ?? ""}`.trim(),
-                            )
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="hidden text-muted-foreground md:table-cell">
-                        {department.parent
-                          ? localizedName(locale, department.parent.name, department.parent.nameAr)
-                          : t("topLevel")}
-                      </TableCell>
-                      <TableCell>{formatNumber(department._count.employments, locale)}</TableCell>
-                      <TableCell>{formatNumber(department._count.positions, locale)}</TableCell>
-                    </TableRow>
+                    <div key={department.id} className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">
+                            {localizedName(locale, department.name, department.nameAr)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {department.code} ·{" "}
+                            {department.manager
+                              ? localizedName(
+                                  locale,
+                                  `${department.manager.firstName} ${department.manager.lastName}`,
+                                  `${department.manager.firstNameAr ?? ""} ${department.manager.lastNameAr ?? ""}`.trim(),
+                                )
+                              : t("manager")}
+                          </p>
+                        </div>
+                        <Badge variant="outline">
+                          {formatNumber(department._count.employments, locale)}{" "}
+                          {employeesT("title")}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>
+                          {t("parent")}:{" "}
+                          {department.parent
+                            ? localizedName(locale, department.parent.name, department.parent.nameAr)
+                            : t("topLevel")}
+                        </span>
+                        <span>
+                          {t("positions")}:{" "}
+                          {formatNumber(department._count.positions, locale)}
+                        </span>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("name")}</TableHead>
+                        <TableHead>{t("code")}</TableHead>
+                        <TableHead>{t("manager")}</TableHead>
+                        <TableHead className="hidden md:table-cell">{t("parent")}</TableHead>
+                        <TableHead>{t("headcount")}</TableHead>
+                        <TableHead>{t("positions")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {departments.map((department) => (
+                        <TableRow key={department.id}>
+                          <TableCell className="font-medium">
+                            {localizedName(locale, department.name, department.nameAr)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{department.code}</TableCell>
+                          <TableCell>
+                            {department.manager
+                              ? localizedName(
+                                  locale,
+                                  `${department.manager.firstName} ${department.manager.lastName}`,
+                                  `${department.manager.firstNameAr ?? ""} ${department.manager.lastNameAr ?? ""}`.trim(),
+                                )
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="hidden text-muted-foreground md:table-cell">
+                            {department.parent
+                              ? localizedName(locale, department.parent.name, department.parent.nameAr)
+                              : t("topLevel")}
+                          </TableCell>
+                          <TableCell>{formatNumber(department._count.employments, locale)}</TableCell>
+                          <TableCell>{formatNumber(department._count.positions, locale)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

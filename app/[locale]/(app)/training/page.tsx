@@ -93,21 +93,22 @@ export default async function TrainingPage({
         },
         orderBy: { createdAt: "desc" },
       },
-      _count: { select: { enrollments: true } },
     },
     orderBy: [{ startDate: "desc" }, { createdAt: "desc" }],
     }),
-    prisma.employee.findMany({
-      where: { deletedAt: null, status: { in: ["ACTIVE", "PROBATION"] } },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        firstNameAr: true,
-        lastNameAr: true,
-      },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    }),
+    canManage
+      ? prisma.employee.findMany({
+          where: { deletedAt: null, status: { in: ["ACTIVE", "PROBATION"] } },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            firstNameAr: true,
+            lastNameAr: true,
+          },
+          orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+        })
+      : Promise.resolve([]),
   ]);
 
   const allEnrollments = courses.flatMap((course) => course.enrollments);
@@ -116,6 +117,8 @@ export default async function TrainingPage({
   ).length;
   const activeCourses = courses.filter((course) => course.status === "IN_PROGRESS").length;
   const totalCost = courses.reduce((sum, course) => sum + Number(course.cost ?? 0), 0);
+  const costCurrencies = [...new Set(courses.map((course) => course.currency))];
+  const costCurrency = costCurrencies.length === 1 ? costCurrencies[0] : null;
   const completionRate =
     allEnrollments.length > 0 ? Math.round((completed / allEnrollments.length) * 100) : 0;
 
@@ -297,8 +300,12 @@ export default async function TrainingPage({
         />
         <StatCard
           label={t("cost")}
-          value={formatMoney(totalCost, locale, "YER")}
-          hint={t("courses")}
+          value={
+            costCurrency
+              ? formatMoney(totalCost, locale, costCurrency)
+              : formatNumber(totalCost, locale)
+          }
+          hint={costCurrency ?? t("mixedCurrencies")}
           icon={<Wallet className="size-5" />}
         />
       </div>
@@ -313,8 +320,8 @@ export default async function TrainingPage({
                 (enrollment) => enrollment.status === "COMPLETED",
               ).length;
               const rate =
-                course._count.enrollments > 0
-                  ? Math.round((courseCompleted / course._count.enrollments) * 100)
+                course.enrollments.length > 0
+                  ? Math.round((courseCompleted / course.enrollments.length) * 100)
                   : 0;
               return (
                 <Card key={course.id}>
@@ -409,48 +416,41 @@ export default async function TrainingPage({
                 <p className="text-xs text-muted-foreground">{t("noEnrollments")}</p>
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("course")}</TableHead>
-                    {canViewAll && <TableHead>{t("employee")}</TableHead>}
-                    <TableHead>{t("status")}</TableHead>
-                    <TableHead>{t("score")}</TableHead>
-                    {canManage && <TableHead>{common("actions")}</TableHead>}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="divide-y md:hidden">
                   {allEnrollments.slice(0, 12).map((enrollment) => {
                     const course = courses.find((item) =>
                       item.enrollments.some((row) => row.id === enrollment.id),
                     );
                     return (
-                      <TableRow key={enrollment.id}>
-                        <TableCell className="max-w-40 truncate text-xs">
-                          {course
-                            ? localizedName(locale, course.title, course.titleAr)
-                            : "—"}
-                        </TableCell>
-                        {canViewAll && (
-                          <TableCell className="max-w-36 truncate text-xs">
-                            {localizedName(
-                              locale,
-                              `${enrollment.employee.firstName} ${enrollment.employee.lastName}`,
-                              `${enrollment.employee.firstNameAr ?? ""} ${enrollment.employee.lastNameAr ?? ""}`.trim(),
+                      <div key={enrollment.id} className="space-y-2 p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {course
+                                ? localizedName(locale, course.title, course.titleAr)
+                                : "—"}
+                            </p>
+                            {canViewAll && (
+                              <p className="truncate text-xs text-muted-foreground">
+                                {localizedName(
+                                  locale,
+                                  `${enrollment.employee.firstName} ${enrollment.employee.lastName}`,
+                                  `${enrollment.employee.firstNameAr ?? ""} ${enrollment.employee.lastNameAr ?? ""}`.trim(),
+                                )}
+                              </p>
                             )}
-                          </TableCell>
-                        )}
-                        <TableCell>
+                          </div>
                           <StatusBadge
                             value={enrollment.status}
                             group="enrollmentStatus"
                           />
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {enrollment.score ?? "—"}
-                        </TableCell>
-                        {canManage && (
-                          <TableCell>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {t("score")}: {enrollment.score ?? "—"}
+                          </span>
+                          {canManage && (
                             <FormDialog
                               title={t("updateEnrollment")}
                               description={
@@ -479,13 +479,92 @@ export default async function TrainingPage({
                               triggerSize="xs"
                               triggerVariant="ghost"
                             />
-                          </TableCell>
-                        )}
-                      </TableRow>
+                          )}
+                        </div>
+                      </div>
                     );
                   })}
-                </TableBody>
-              </Table>
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("course")}</TableHead>
+                        {canViewAll && <TableHead>{t("employee")}</TableHead>}
+                        <TableHead>{t("status")}</TableHead>
+                        <TableHead>{t("score")}</TableHead>
+                        {canManage && <TableHead>{common("actions")}</TableHead>}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allEnrollments.slice(0, 12).map((enrollment) => {
+                        const course = courses.find((item) =>
+                          item.enrollments.some((row) => row.id === enrollment.id),
+                        );
+                        return (
+                          <TableRow key={enrollment.id}>
+                            <TableCell className="max-w-40 truncate text-xs">
+                              {course
+                                ? localizedName(locale, course.title, course.titleAr)
+                                : "—"}
+                            </TableCell>
+                            {canViewAll && (
+                              <TableCell className="max-w-36 truncate text-xs">
+                                {localizedName(
+                                  locale,
+                                  `${enrollment.employee.firstName} ${enrollment.employee.lastName}`,
+                                  `${enrollment.employee.firstNameAr ?? ""} ${enrollment.employee.lastNameAr ?? ""}`.trim(),
+                                )}
+                              </TableCell>
+                            )}
+                            <TableCell>
+                              <StatusBadge
+                                value={enrollment.status}
+                                group="enrollmentStatus"
+                              />
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {enrollment.score ?? "—"}
+                            </TableCell>
+                            {canManage && (
+                              <TableCell>
+                                <FormDialog
+                                  title={t("updateEnrollment")}
+                                  description={
+                                    course
+                                      ? localizedName(locale, course.title, course.titleAr)
+                                      : undefined
+                                  }
+                                  triggerLabel={common("edit")}
+                                  successMessage={t("enrollmentUpdated")}
+                                  fields={enrollmentUpdateFields()}
+                                  initial={{
+                                    status: enrollment.status,
+                                    score:
+                                      enrollment.score != null
+                                        ? String(enrollment.score)
+                                        : "",
+                                    certificateUrl: enrollment.certificateUrl ?? "",
+                                    feedback: enrollment.feedback ?? "",
+                                  }}
+                                  action={updateEnrollmentAction.bind(
+                                    null,
+                                    locale,
+                                    enrollment.id,
+                                  )}
+                                  errorMessages={errorMessages}
+                                  triggerSize="xs"
+                                  triggerVariant="ghost"
+                                />
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>

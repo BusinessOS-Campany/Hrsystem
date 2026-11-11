@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireAuth } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
-import { revokeSessionFormAction } from "./actions";
+import { RevokeSessionButton } from "@/components/profile/revoke-session-button";
 import { formatDate, formatDateTime, localizedName } from "@/lib/format";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -179,54 +179,88 @@ export default async function ProfilePage({
           <CardDescription>{auth("sessionsHint")}</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{auth("device")}</TableHead>
-                <TableHead>{auth("ipAddress")}</TableHead>
-                <TableHead>{auth("lastSeen")}</TableHead>
-                <TableHead>{common("status")}</TableHead>
-                <TableHead className="text-end">{common("actions")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {account.sessions.map((session) => (
-                <TableRow key={session.id}>
-                  <TableCell className="max-w-72 truncate text-xs text-muted-foreground">
+          <div className="divide-y md:hidden">
+            {account.sessions.map((session) => (
+              <div key={session.id} className="space-y-2 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 break-all text-xs text-muted-foreground">
                     {session.userAgent ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {session.ip ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  </p>
+                  {session.id === sessionUser.sessionId ? (
+                    <Badge variant="secondary" className="shrink-0 gap-1">
+                      <ShieldCheck className="size-3" /> {auth("currentSession")}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="shrink-0">
+                      {common("active")}
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                  <span>
+                    {auth("ipAddress")}: {session.ip ?? "—"}
+                  </span>
+                  <span>
+                    {auth("lastSeen")}:{" "}
                     {formatDate(session.createdAt, locale, {
                       day: "2-digit",
                       month: "short",
                       year: "numeric",
                     })}
-                  </TableCell>
-                  <TableCell>
-                    {session.id === sessionUser.sessionId ? (
-                      <Badge variant="secondary" className="gap-1">
-                        <ShieldCheck className="size-3" /> {auth("currentSession")}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline">{common("active")}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-end">
-                    {session.id !== sessionUser.sessionId && (
-                      <form action={revokeSessionFormAction.bind(null, locale, session.id)}>
-                        <Button size="sm" variant="outline" type="submit">
-                          {auth("revoke")}
-                        </Button>
-                      </form>
-                    )}
-                  </TableCell>
+                  </span>
+                </div>
+                {session.id !== sessionUser.sessionId && (
+                  <RevokeSessionButton locale={locale} sessionId={session.id} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{auth("device")}</TableHead>
+                  <TableHead>{auth("ipAddress")}</TableHead>
+                  <TableHead>{auth("lastSeen")}</TableHead>
+                  <TableHead>{common("status")}</TableHead>
+                  <TableHead className="text-end">{common("actions")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {account.sessions.map((session) => (
+                  <TableRow key={session.id}>
+                    <TableCell className="max-w-72 truncate text-xs text-muted-foreground">
+                      {session.userAgent ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {session.ip ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {formatDate(session.createdAt, locale, {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </TableCell>
+                    <TableCell>
+                      {session.id === sessionUser.sessionId ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <ShieldCheck className="size-3" /> {auth("currentSession")}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">{common("active")}</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-end">
+                      {session.id !== sessionUser.sessionId && (
+                        <RevokeSessionButton locale={locale} sessionId={session.id} />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

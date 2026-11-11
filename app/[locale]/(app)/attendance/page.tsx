@@ -7,7 +7,13 @@ import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { CheckInCard } from "@/components/attendance/check-in-card";
-import { reviewCorrectionFormAction } from "./actions";
+import { CorrectionReviewActions } from "@/components/attendance/correction-review-actions";
+import { requestCorrectionAction } from "./actions";
+import {
+  FormDialog,
+  type FormField,
+  type SettingsValue,
+} from "@/components/settings/settings-dialog";
 import {
   formatDate,
   formatNumber,
@@ -31,7 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CalendarCheck, Check, Clock3, UserCheck, X } from "lucide-react";
+import { CalendarCheck, Clock3, UserCheck, X } from "lucide-react";
 
 function time(value: Date | null) {
   if (!value) return "—";
@@ -106,7 +112,15 @@ export default async function AttendancePage({
       ? prisma.attendanceCorrection.findMany({
           where: {
             status: "PENDING",
-            ...(canViewAll ? {} : { employeeId: { in: employeeIds.length ? employeeIds : ["__none__"] } }),
+            ...(canViewAll
+              ? user.employeeId
+                ? { employeeId: { not: user.employeeId } }
+                : {}
+              : {
+                  employeeId: {
+                    in: employeeIds.filter((id) => id !== user.employeeId),
+                  },
+                }),
           },
           select: {
             id: true,
@@ -163,18 +177,76 @@ export default async function AttendancePage({
     number
   >;
 
+  const correctionFields: FormField[] = [
+    {
+      name: "date",
+      label: t("date"),
+      type: "date",
+      required: true,
+      max: today.toISOString().slice(0, 10),
+    },
+    {
+      name: "checkIn",
+      label: t("requestedCheckIn"),
+      type: "time",
+    },
+    {
+      name: "checkOut",
+      label: t("requestedCheckOut"),
+      type: "time",
+    },
+    {
+      name: "reason",
+      label: t("correctionReason"),
+      type: "textarea",
+      required: true,
+      colSpan: 2,
+    },
+  ];
+  const correctionInitial: Record<string, SettingsValue> = {
+    date: today.toISOString().slice(0, 10),
+    checkIn: "",
+    checkOut: "",
+    reason: "",
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
         actions={
-          <form className="flex flex-wrap items-center gap-2">
-            <Input type="date" name="date" defaultValue={selectedDate.toISOString().slice(0, 10)} className="w-auto" />
-            <Button type="submit" variant="outline">
-              {common("filter")}
-            </Button>
-          </form>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <form className="flex flex-wrap items-center gap-2">
+              <Input
+                type="date"
+                name="date"
+                defaultValue={selectedDate.toISOString().slice(0, 10)}
+                className="w-auto"
+              />
+              <Button type="submit" size="sm" variant="outline">
+                {common("filter")}
+              </Button>
+            </form>
+            {canSelf && user.employeeId && (
+              <FormDialog
+                title={t("requestCorrection")}
+                triggerLabel={t("requestCorrection")}
+                triggerVariant="outline"
+                triggerSize="sm"
+                successMessage={t("correctionSubmitted")}
+                fields={correctionFields}
+                initial={correctionInitial}
+                action={requestCorrectionAction.bind(null, locale)}
+                errorMessages={{
+                  invalid: t("invalidCorrection"),
+                  duplicate: t("correctionDuplicate"),
+                  noEmployee: common("error"),
+                  unauthorized: common("error"),
+                }}
+              />
+            )}
+          </div>
         }
       />
 
@@ -236,54 +308,107 @@ export default async function AttendancePage({
                 <EmptyState title={t("noRecords")} />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("employee")}</TableHead>
-                    <TableHead>{t("status")}</TableHead>
-                    <TableHead>{t("checkInTime")}</TableHead>
-                    <TableHead>{t("checkOutTime")}</TableHead>
-                    <TableHead className="hidden md:table-cell">{t("worked")}</TableHead>
-                    <TableHead className="hidden md:table-cell">{t("lateMinutes")}</TableHead>
-                    <TableHead className="hidden lg:table-cell">{t("source")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+              <>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("employee")}</TableHead>
+                        <TableHead>{t("status")}</TableHead>
+                        <TableHead>{t("checkInTime")}</TableHead>
+                        <TableHead>{t("checkOutTime")}</TableHead>
+                        <TableHead>{t("worked")}</TableHead>
+                        <TableHead>{t("lateMinutes")}</TableHead>
+                        <TableHead>{t("source")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {records.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>
+                            <Link
+                              href={`/employees/${record.employeeId}`}
+                              className="text-sm font-medium hover:underline"
+                            >
+                              {localizedName(
+                                locale,
+                                `${record.employee.firstName} ${record.employee.lastName}`,
+                                `${record.employee.firstNameAr ?? ""} ${record.employee.lastNameAr ?? ""}`.trim(),
+                              )}
+                            </Link>
+                            <p className="text-xs text-muted-foreground">
+                              {record.employee.employeeNo}
+                            </p>
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge value={record.status} group="attendanceStatus" />
+                          </TableCell>
+                          <TableCell className="text-sm">{time(record.checkIn)}</TableCell>
+                          <TableCell className="text-sm">{time(record.checkOut)}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {record.workedMinutes > 0
+                              ? `${Math.floor(record.workedMinutes / 60)}h ${record.workedMinutes % 60}m`
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {record.lateMinutes > 0 ? `${record.lateMinutes}m` : "—"}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {record.source}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="divide-y md:hidden">
                   {records.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell>
-                        <Link
-                          href={`/employees/${record.employeeId}`}
-                          className="text-sm font-medium hover:underline"
-                        >
-                          {localizedName(
-                            locale,
-                            `${record.employee.firstName} ${record.employee.lastName}`,
-                            `${record.employee.firstNameAr ?? ""} ${record.employee.lastNameAr ?? ""}`.trim(),
-                          )}
-                        </Link>
-                        <p className="text-xs text-muted-foreground">{record.employee.employeeNo}</p>
-                      </TableCell>
-                      <TableCell>
+                    <div key={record.id} className="space-y-2 p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <Link
+                            href={`/employees/${record.employeeId}`}
+                            className="block truncate text-sm font-semibold hover:underline"
+                          >
+                            {localizedName(
+                              locale,
+                              `${record.employee.firstName} ${record.employee.lastName}`,
+                              `${record.employee.firstNameAr ?? ""} ${record.employee.lastNameAr ?? ""}`.trim(),
+                            )}
+                          </Link>
+                          <p className="text-xs text-muted-foreground">
+                            {record.employee.employeeNo}
+                          </p>
+                        </div>
                         <StatusBadge value={record.status} group="attendanceStatus" />
-                      </TableCell>
-                      <TableCell className="text-sm">{time(record.checkIn)}</TableCell>
-                      <TableCell className="text-sm">{time(record.checkOut)}</TableCell>
-                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                        {record.workedMinutes > 0
-                          ? `${Math.floor(record.workedMinutes / 60)}h ${record.workedMinutes % 60}m`
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="hidden text-sm text-muted-foreground md:table-cell">
-                        {record.lateMinutes > 0 ? `${record.lateMinutes}m` : "—"}
-                      </TableCell>
-                      <TableCell className="hidden text-xs text-muted-foreground lg:table-cell">
-                        {record.source}
-                      </TableCell>
-                    </TableRow>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                        <span className="text-muted-foreground">
+                          {t("checkInTime")}: <span className="text-foreground">{time(record.checkIn)}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          {t("checkOutTime")}: <span className="text-foreground">{time(record.checkOut)}</span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          {t("worked")}:{" "}
+                          <span className="text-foreground">
+                            {record.workedMinutes > 0
+                              ? `${Math.floor(record.workedMinutes / 60)}h ${record.workedMinutes % 60}m`
+                              : "—"}
+                          </span>
+                        </span>
+                        <span className="text-muted-foreground">
+                          {t("lateMinutes")}:{" "}
+                          <span className="text-foreground">
+                            {record.lateMinutes > 0 ? `${record.lateMinutes}m` : "—"}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -339,18 +464,7 @@ export default async function AttendancePage({
                     {t("requestedCheckOut")}: {time(correction.requestedCheckOut)}
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <form action={reviewCorrectionFormAction.bind(null, locale, correction.id, "APPROVED")}>
-                    <Button size="sm" type="submit">
-                      <Check className="size-4" /> {common("approve")}
-                    </Button>
-                  </form>
-                  <form action={reviewCorrectionFormAction.bind(null, locale, correction.id, "REJECTED")}>
-                    <Button size="sm" variant="outline" type="submit">
-                      <X className="size-4" /> {common("reject")}
-                    </Button>
-                  </form>
-                </div>
+                <CorrectionReviewActions locale={locale} correctionId={correction.id} />
               </div>
             ))}
           </CardContent>

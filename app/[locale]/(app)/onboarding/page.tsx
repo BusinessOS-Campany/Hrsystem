@@ -249,7 +249,7 @@ export default async function OnboardingPage({
                           key={task.id}
                           className="flex items-center gap-2 rounded-md border p-2 text-sm"
                         >
-                          {canManage ? (
+                          {canManage && plan.status !== "COMPLETED" ? (
                             <form action={toggleOnboardingTaskAction.bind(null, locale, task.id)}>
                               <button
                                 type="submit"

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, hasPermission } from "@/lib/auth/session";
 import { writeAudit } from "@/lib/auth/audit";
+import { serializable, SERIALIZABLE_TX } from "@/lib/db/transaction";
 
 export type TrainingActionResult = {
   ok: boolean;
@@ -201,53 +202,101 @@ export async function enrollEmployeeAction(
   const parsed = enrollmentSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "validation" };
 
-  const [course, employee] = await Promise.all([
-    prisma.trainingCourse.findUnique({
-      where: { id: courseId },
-      include: { _count: { select: { enrollments: true } } },
-    }),
-    prisma.employee.findFirst({
-      where: { id: parsed.data.employeeId, deletedAt: null },
-      include: { user: true },
-    }),
-  ]);
-  if (!course || !employee) return { ok: false, error: "notFound" };
-  if (course.capacity !== null && course._count.enrollments >= course.capacity) {
-    return { ok: false, error: "full" };
-  }
+  const result = await serializable(() =>
+    prisma.$transaction(async (tx) => {
+      const [course, employee] = await Promise.all([
+        tx.trainingCourse.findUnique({
+          where: { id: courseId },
+          select: {
+            id: true,
+            title: true,
+            titleAr: true,
+            code: true,
+            capacity: true,
+            status: true,
+          },
+        }),
+        tx.employee.findFirst({
+          where: { id: parsed.data.employeeId, deletedAt: null },
+          select: { id: true, user: { select: { id: true } } },
+        }),
+      ]);
+      if (!course || !employee) return { error: "notFound" as const };
 
-  const existing = await prisma.trainingEnrollment.findUnique({
-    where: {
-      courseId_employeeId: { courseId, employeeId: employee.id },
-    },
-  });
-  if (existing) return { ok: false, error: "alreadyEnrolled" };
+      const existing = await tx.trainingEnrollment.findUnique({
+        where: {
+          courseId_employeeId: {
+            courseId,
+            employeeId: employee.id,
+          },
+        },
+        select: { id: true, status: true },
+      });
+      if (existing && existing.status !== "WITHDRAWN") {
+        return { error: "alreadyEnrolled" as const };
+      }
 
-  const enrollment = await prisma.trainingEnrollment.create({
-    data: { courseId, employeeId: employee.id, status: "ENROLLED" },
-  });
+      const activeCount = await tx.trainingEnrollment.count({
+        where: {
+          courseId,
+          status: { in: ["ENROLLED", "IN_PROGRESS", "COMPLETED"] },
+        },
+      });
+      if (course.capacity !== null && activeCount >= course.capacity) {
+        return { error: "full" as const };
+      }
 
-  if (employee.user) {
-    await prisma.notification.create({
-      data: {
-        userId: employee.user.id,
-        type: "TRAINING",
-        title: "Training enrollment",
-        titleAr: "تسجيل في تدريب",
-        message: `You have been enrolled in ${course.title}.`,
-        messageAr: `تم تسجيلك في دورة ${course.titleAr ?? course.title}.`,
-        link: "/training",
-      },
-    });
-  }
+      const enrollment = existing
+        ? await tx.trainingEnrollment.update({
+            where: { id: existing.id },
+            data: {
+              status: "ENROLLED",
+              score: null,
+              feedback: null,
+              certificateUrl: null,
+              completedAt: null,
+            },
+            select: { id: true },
+          })
+        : await tx.trainingEnrollment.create({
+            data: { courseId, employeeId: employee.id, status: "ENROLLED" },
+            select: { id: true },
+          });
 
-  await writeAudit({
-    userId: user.id,
-    action: "CREATE",
-    entity: "TrainingEnrollment",
-    entityId: enrollment.id,
-    newData: { courseId, employeeId: employee.id, course: course.code },
-  });
+      if (employee.user) {
+        await tx.notification.create({
+          data: {
+            userId: employee.user.id,
+            type: "TRAINING",
+            title: "Training enrollment",
+            titleAr: "تسجيل في تدريب",
+            message: `You have been enrolled in ${course.title}.`,
+            messageAr: `تم تسجيلك في دورة ${course.titleAr ?? course.title}.`,
+            link: "/training",
+          },
+        });
+      }
+
+      await writeAudit(
+        {
+          userId: user.id,
+          action: "CREATE",
+          entity: "TrainingEnrollment",
+          entityId: enrollment.id,
+          newData: {
+            courseId,
+            employeeId: employee.id,
+            course: course.code,
+          },
+        },
+        tx,
+      );
+
+      return { enrollmentId: enrollment.id };
+    }, SERIALIZABLE_TX),
+  );
+
+  if ("error" in result) return { ok: false, error: result.error };
 
   done(locale);
   return { ok: true };
@@ -289,7 +338,11 @@ export async function updateEnrollmentAction(
     },
   });
 
-  if (parsed.data.status === "COMPLETED" && enrollment.employee.user) {
+  if (
+    parsed.data.status === "COMPLETED" &&
+    enrollment.status !== "COMPLETED" &&
+    enrollment.employee.user
+  ) {
     await prisma.notification.create({
       data: {
         userId: enrollment.employee.user.id,

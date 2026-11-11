@@ -361,6 +361,57 @@ export default async function PerformancePage({
     );
   }
 
+
+  function renderReviewActions(review: (typeof reviews)[number]) {
+    return (
+      <div className="flex flex-wrap items-center gap-1">
+        {canSelf &&
+          review.employeeId === user.employeeId &&
+          review.status !== "COMPLETED" && (
+            <FormDialog
+              title={t("selfReview")}
+              description={t("reviewFor", { name: review.cycle.name })}
+              triggerLabel={t("selfReview")}
+              successMessage={t("reviewSubmitted")}
+              fields={selfReviewFields()}
+              initial={{
+                selfRating:
+                  review.selfRating != null ? String(review.selfRating) : "",
+                selfComment: review.selfComment ?? "",
+              }}
+              action={submitSelfReviewAction.bind(null, locale, review.id)}
+              errorMessages={errorMessages}
+              triggerSize="xs"
+              triggerVariant="ghost"
+            />
+          )}
+        {canReviewTeam &&
+          (canViewAll || review.managerId === user.employeeId) &&
+          review.status !== "COMPLETED" && (
+            <FormDialog
+              title={t("managerReview")}
+              description={t("reviewFor", { name: review.cycle.name })}
+              triggerLabel={t("managerReview")}
+              triggerIcon="edit"
+              successMessage={t("reviewSubmitted")}
+              fields={managerReviewFields()}
+              initial={{
+                managerRating:
+                  review.managerRating != null
+                    ? String(review.managerRating)
+                    : "",
+                managerComment: review.managerComment ?? "",
+              }}
+              action={submitManagerReviewAction.bind(null, locale, review.id)}
+              errorMessages={errorMessages}
+              triggerSize="xs"
+              triggerVariant="ghost"
+            />
+          )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -470,10 +521,59 @@ export default async function PerformancePage({
                 <EmptyState title={t("noReviews")} />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("employee")}</TableHead>
+            <>
+              <div className="divide-y md:hidden">
+                {reviews.map((review) => (
+                  <div key={review.id} className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <Link
+                          href={`/employees/${review.employeeId}`}
+                          className="block truncate text-sm font-medium hover:underline"
+                        >
+                          {localizedName(
+                            locale,
+                            `${review.employee.firstName} ${review.employee.lastName}`,
+                            `${review.employee.firstNameAr ?? ""} ${review.employee.lastNameAr ?? ""}`.trim(),
+                          )}
+                        </Link>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {review.cycle.name}
+                        </p>
+                      </div>
+                      <StatusBadge value={review.status} group="reviewStatus" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <p className="text-muted-foreground">{t("selfReview")}</p>
+                        <p className="font-medium">
+                          {review.selfRating ? `${review.selfRating}/5` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">{t("managerReview")}</p>
+                        <p className="font-medium">
+                          {review.managerRating ? `${review.managerRating}/5` : "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">{t("finalRating")}</p>
+                        <p className="font-medium">
+                          {review.finalRating
+                            ? Number(review.finalRating).toFixed(1)
+                            : "—"}
+                        </p>
+                      </div>
+                    </div>
+                    {(canSelf || canReviewTeam) && renderReviewActions(review)}
+                  </div>
+                ))}
+              </div>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t("employee")}</TableHead>
                     <TableHead>{t("cycle")}</TableHead>
                     <TableHead>{t("selfReview")}</TableHead>
                     <TableHead>{t("managerReview")}</TableHead>
@@ -521,69 +621,15 @@ export default async function PerformancePage({
                         <StatusBadge value={review.status} group="reviewStatus" />
                       </TableCell>
                       {(canSelf || canReviewTeam) && (
-                        <TableCell>
-                          <div className="flex flex-wrap items-center gap-1">
-                            {canSelf &&
-                              review.employeeId === user.employeeId &&
-                              review.status !== "COMPLETED" && (
-                                <FormDialog
-                                  title={t("selfReview")}
-                                  description={t("reviewFor", { name: review.cycle.name })}
-                                  triggerLabel={t("selfReview")}
-                                  successMessage={t("reviewSubmitted")}
-                                  fields={selfReviewFields()}
-                                  initial={{
-                                    selfRating:
-                                      review.selfRating != null
-                                        ? String(review.selfRating)
-                                        : "",
-                                    selfComment: review.selfComment ?? "",
-                                  }}
-                                  action={submitSelfReviewAction.bind(
-                                    null,
-                                    locale,
-                                    review.id,
-                                  )}
-                                  errorMessages={errorMessages}
-                                  triggerSize="xs"
-                                  triggerVariant="ghost"
-                                />
-                              )}
-                            {canReviewTeam &&
-                              (canViewAll || review.managerId === user.employeeId) &&
-                              review.status !== "COMPLETED" && (
-                                <FormDialog
-                                  title={t("managerReview")}
-                                  description={t("reviewFor", { name: review.cycle.name })}
-                                  triggerLabel={t("managerReview")}
-                                  triggerIcon="edit"
-                                  successMessage={t("reviewSubmitted")}
-                                  fields={managerReviewFields()}
-                                  initial={{
-                                    managerRating:
-                                      review.managerRating != null
-                                        ? String(review.managerRating)
-                                        : "",
-                                    managerComment: review.managerComment ?? "",
-                                  }}
-                                  action={submitManagerReviewAction.bind(
-                                    null,
-                                    locale,
-                                    review.id,
-                                  )}
-                                  errorMessages={errorMessages}
-                                  triggerSize="xs"
-                                  triggerVariant="ghost"
-                                />
-                              )}
-                          </div>
-                        </TableCell>
+                        <TableCell>{renderReviewActions(review)}</TableCell>
                       )}
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
-            )}
+                </Table>
+              </div>
+            </>
+          )}
           </CardContent>
         </Card>
       </div>

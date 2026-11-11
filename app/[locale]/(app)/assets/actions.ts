@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, hasPermission } from "@/lib/auth/session";
 import { writeAudit } from "@/lib/auth/audit";
+import { serializable, SERIALIZABLE_TX } from "@/lib/db/transaction";
 
 export type AssetActionResult = {
   ok: boolean;
@@ -197,64 +198,83 @@ export async function assignAssetAction(
   const parsed = assignSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "validation" };
 
-  const asset = await prisma.asset.findUnique({
-    where: { id: assetId },
-    include: {
-      assignments: { where: { returnedAt: null }, take: 1 },
-    },
-  });
-  if (!asset) return { ok: false, error: "notFound" };
-  if (asset.status !== "AVAILABLE" || asset.assignments.length > 0) {
-    return { ok: false, error: "notAvailable" };
-  }
+  const result = await serializable(() =>
+    prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.findUnique({
+        where: { id: assetId },
+        select: {
+          id: true,
+          name: true,
+          assetTag: true,
+          status: true,
+          assignments: {
+            where: { returnedAt: null },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      });
+      if (!asset) return { error: "notFound" as const };
+      if (asset.status !== "AVAILABLE" || asset.assignments.length > 0) {
+        return { error: "notAvailable" as const };
+      }
 
-  const employee = await prisma.employee.findFirst({
-    where: {
-      id: parsed.data.employeeId,
-      deletedAt: null,
-      status: { in: ["ACTIVE", "PROBATION"] },
-    },
-    include: { user: true },
-  });
-  if (!employee) return { ok: false, error: "notFound" };
+      const employee = await tx.employee.findFirst({
+        where: {
+          id: parsed.data.employeeId,
+          deletedAt: null,
+          status: { in: ["ACTIVE", "PROBATION"] },
+        },
+        select: { id: true, user: { select: { id: true } } },
+      });
+      if (!employee) return { error: "notFound" as const };
 
-  const assignment = await prisma.$transaction(async (tx) => {
-    const created = await tx.assetAssignment.create({
-      data: {
-        assetId,
-        employeeId: employee.id,
-        assignedById: user.id,
-        notes: parsed.data.notes || null,
-      },
-    });
-    await tx.asset.update({
-      where: { id: assetId },
-      data: { status: "ASSIGNED" },
-    });
-    return created;
-  });
+      const claimed = await tx.asset.updateMany({
+        where: { id: assetId, status: "AVAILABLE" },
+        data: { status: "ASSIGNED" },
+      });
+      if (claimed.count !== 1) return { error: "notAvailable" as const };
 
-  if (employee.user) {
-    await prisma.notification.create({
-      data: {
-        userId: employee.user.id,
-        type: "GENERAL",
-        title: "Asset assigned",
-        titleAr: "تم تعيين أصل",
-        message: `${asset.name} (${asset.assetTag}) has been assigned to you.`,
-        messageAr: `تم تعيين ${asset.name} (${asset.assetTag}) لك.`,
-        link: "/assets",
-      },
-    });
-  }
+      const assignment = await tx.assetAssignment.create({
+        data: {
+          assetId,
+          employeeId: employee.id,
+          assignedById: user.id,
+          notes: parsed.data.notes || null,
+        },
+        select: { id: true },
+      });
 
-  await writeAudit({
-    userId: user.id,
-    action: "UPDATE",
-    entity: "AssetAssignment",
-    entityId: assignment.id,
-    newData: { assetId, employeeId: employee.id, assetTag: asset.assetTag },
-  });
+      if (employee.user) {
+        await tx.notification.create({
+          data: {
+            userId: employee.user.id,
+            type: "GENERAL",
+            title: "Asset assigned",
+            titleAr: "تم تعيين أصل",
+            message: `${asset.name} (${asset.assetTag}) has been assigned to you.`,
+            messageAr: `تم تعيين ${asset.name} (${asset.assetTag}) لك.`,
+            link: "/assets",
+          },
+        });
+      }
+
+      await writeAudit(
+        {
+          userId: user.id,
+          action: "UPDATE",
+          entity: "AssetAssignment",
+          entityId: assignment.id,
+          newData: { assetId, employeeId: employee.id, assetTag: asset.assetTag },
+        },
+        tx,
+      );
+
+      return { assignmentId: assignment.id };
+    }, SERIALIZABLE_TX),
+  );
+
+  if ("error" in result) return { ok: false, error: result.error };
 
   done(locale);
   return { ok: true };
@@ -273,69 +293,95 @@ export async function returnAssetAction(
   const parsed = returnSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "validation" };
 
-  const asset = await prisma.asset.findUnique({
-    where: { id: assetId },
-    include: {
-      assignments: {
-        where: { returnedAt: null },
-        include: { employee: { include: { user: true } } },
-        take: 1,
-      },
-    },
-  });
-  if (!asset) return { ok: false, error: "notFound" };
-  const assignment = asset.assignments[0];
-  if (!assignment) return { ok: false, error: "notAssigned" };
-
   const nextStatus =
-    parsed.data.returnCondition === "POOR" || parsed.data.returnCondition === "DAMAGED"
+    parsed.data.returnCondition === "POOR" ||
+    parsed.data.returnCondition === "DAMAGED"
       ? "MAINTENANCE"
       : "AVAILABLE";
 
-  const notes = [assignment.notes, parsed.data.notes].filter(Boolean).join("\n") || null;
+  const result = await serializable(() =>
+    prisma.$transaction(async (tx) => {
+      const asset = await tx.asset.findUnique({
+        where: { id: assetId },
+        select: {
+          id: true,
+          name: true,
+          assetTag: true,
+          assignments: {
+            where: { returnedAt: null },
+            take: 1,
+            select: {
+              id: true,
+              employeeId: true,
+              notes: true,
+              employee: {
+                select: { user: { select: { id: true } } },
+              },
+            },
+          },
+        },
+      });
+      if (!asset) return { error: "notFound" as const };
+      const assignment = asset.assignments[0];
+      if (!assignment) return { error: "notAssigned" as const };
 
-  await prisma.$transaction(async (tx) => {
-    await tx.assetAssignment.update({
-      where: { id: assignment.id },
-      data: {
-        returnedAt: new Date(),
-        returnCondition: parsed.data.returnCondition,
-        notes,
-      },
-    });
-    await tx.asset.update({
-      where: { id: assetId },
-      data: { status: nextStatus, condition: parsed.data.returnCondition },
-    });
-  });
+      const notes =
+        [assignment.notes, parsed.data.notes].filter(Boolean).join("\n") || null;
+      const returned = await tx.assetAssignment.updateMany({
+        where: { id: assignment.id, returnedAt: null },
+        data: {
+          returnedAt: new Date(),
+          returnCondition: parsed.data.returnCondition,
+          notes,
+        },
+      });
+      if (returned.count !== 1) return { error: "notAssigned" as const };
 
-  if (assignment.employee.user) {
-    await prisma.notification.create({
-      data: {
-        userId: assignment.employee.user.id,
-        type: "GENERAL",
-        title: "Asset returned",
-        titleAr: "تمت إعادة أصل",
-        message: `${asset.name} (${asset.assetTag}) has been returned.`,
-        messageAr: `تمت إعادة ${asset.name} (${asset.assetTag}).`,
-        link: "/assets",
-      },
-    });
-  }
+      await tx.asset.update({
+        where: { id: assetId },
+        data: { status: nextStatus, condition: parsed.data.returnCondition },
+      });
 
-  await writeAudit({
-    userId: user.id,
-    action: "UPDATE",
-    entity: "AssetAssignment",
-    entityId: assignment.id,
-    oldData: { assetId, employeeId: assignment.employeeId, returnedAt: null },
-    newData: {
-      assetId,
-      employeeId: assignment.employeeId,
-      returnCondition: parsed.data.returnCondition,
-      nextStatus,
-    },
-  });
+      if (assignment.employee.user) {
+        await tx.notification.create({
+          data: {
+            userId: assignment.employee.user.id,
+            type: "GENERAL",
+            title: "Asset returned",
+            titleAr: "تمت إعادة أصل",
+            message: `${asset.name} (${asset.assetTag}) has been returned.`,
+            messageAr: `تمت إعادة ${asset.name} (${asset.assetTag}).`,
+            link: "/assets",
+          },
+        });
+      }
+
+      await writeAudit(
+        {
+          userId: user.id,
+          action: "UPDATE",
+          entity: "AssetAssignment",
+          entityId: assignment.id,
+          oldData: {
+            assetId,
+            employeeId: assignment.employeeId,
+            returnedAt: null,
+          },
+          newData: {
+            assetId,
+            employeeId: assignment.employeeId,
+            returnCondition: parsed.data.returnCondition,
+            nextStatus,
+          },
+        },
+        tx,
+      );
+
+      return { assignmentId: assignment.id };
+    }, SERIALIZABLE_TX),
+  );
+
+  if ("error" in result) return { ok: false, error: result.error };
 
   done(locale);
   return { ok: true };

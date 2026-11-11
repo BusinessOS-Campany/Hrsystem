@@ -18,7 +18,7 @@ export type AuthUser = {
   email: string;
   username: string;
   employeeId: string | null;
-  roles: { code: string; name: string; nameAr: string }[];
+  roles: { id: string; code: string; name: string; nameAr: string }[];
   permissions: string[];
   sessionId: string;
 };
@@ -41,6 +41,7 @@ const sessionSelect = {
         select: {
           role: {
             select: {
+              id: true,
               code: true,
               name: true,
               nameAr: true,
@@ -76,6 +77,7 @@ export const getCurrentUser = cache(async (): Promise<AuthUser | null> => {
   }
 
   const roles = session.user.roles.map((ur) => ({
+    id: ur.role.id,
     code: ur.role.code,
     name: ur.role.name,
     nameAr: ur.role.nameAr,

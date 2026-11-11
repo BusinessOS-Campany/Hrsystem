@@ -56,11 +56,18 @@ export function formatMoney(
 ) {
   const amount = value === null || value === undefined ? value : Number(value);
   if (amount === null || amount === undefined || Number.isNaN(amount)) return "—";
-  return new Intl.NumberFormat(intlLocale(locale), {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount);
+  const code = /^[A-Za-z]{3}$/.test(currency) ? currency.toUpperCase() : "YER";
+  try {
+    return new Intl.NumberFormat(intlLocale(locale), {
+      style: "currency",
+      currency: code,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${new Intl.NumberFormat(intlLocale(locale), {
+      maximumFractionDigits: 0,
+    }).format(amount)} ${code}`;
+  }
 }
 
 export function formatNumber(value: Numeric, locale: string) {

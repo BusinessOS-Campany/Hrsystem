@@ -286,7 +286,7 @@ export default async function OffboardingPage({
                           key={task.id}
                           className="flex items-center gap-2 rounded-md border p-2 text-sm"
                         >
-                          {canManage ? (
+                          {canManage && item.status !== "COMPLETED" ? (
                             <form action={toggleOffboardingTaskAction.bind(null, locale, task.id)}>
                               <button
                                 type="submit"

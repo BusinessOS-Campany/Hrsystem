@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getCurrentUser, hasPermission } from "@/lib/auth/session";
 import { writeAudit } from "@/lib/auth/audit";
+import { serializable, SERIALIZABLE_TX } from "@/lib/db/transaction";
 
 export type RecruitmentActionResult = {
   ok: boolean;
@@ -273,66 +274,93 @@ export async function createApplicationAction(
   const parsed = applicationSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "validation" };
   const data = parsed.data;
-
-  const vacancy = await prisma.jobVacancy.findUnique({ where: { id: data.vacancyId } });
-  if (!vacancy) return { ok: false, error: "notFound" };
-  if (vacancy.status === "CLOSED" || vacancy.status === "FILLED") {
-    return { ok: false, error: "closedVacancy" };
-  }
-
   const email = data.email.toLowerCase();
-  const existingCandidate = await prisma.candidate.findUnique({ where: { email } });
-  if (existingCandidate) {
-    const duplicate = await prisma.candidateApplication.findUnique({
-      where: {
-        vacancyId_candidateId: {
-          vacancyId: vacancy.id,
-          candidateId: existingCandidate.id,
-        },
-      },
-    });
-    if (duplicate) return { ok: false, error: "duplicateApplication" };
+
+  let result:
+    | { error: "notFound" | "closedVacancy" | "duplicateApplication" }
+    | { candidateName: string; applicationId: string };
+  try {
+    result = await serializable(() =>
+      prisma.$transaction(async (tx) => {
+        const vacancy = await tx.jobVacancy.findUnique({
+          where: { id: data.vacancyId },
+          select: { id: true, status: true },
+        });
+        if (!vacancy) return { error: "notFound" as const };
+        if (vacancy.status === "CLOSED" || vacancy.status === "FILLED") {
+          return { error: "closedVacancy" as const };
+        }
+
+        const existingCandidate = await tx.candidate.findUnique({
+          where: { email },
+          select: { id: true, firstName: true, lastName: true },
+        });
+        if (existingCandidate) {
+          const duplicate = await tx.candidateApplication.findUnique({
+            where: {
+              vacancyId_candidateId: {
+                vacancyId: vacancy.id,
+                candidateId: existingCandidate.id,
+              },
+            },
+            select: { id: true },
+          });
+          if (duplicate) return { error: "duplicateApplication" as const };
+        }
+
+        const candidate =
+          existingCandidate ??
+          (await tx.candidate.create({
+            data: {
+              firstName: data.firstName,
+              lastName: data.lastName,
+              email,
+              phone: data.phone || null,
+              cvUrl: data.cvUrl || null,
+              experienceYears: data.experienceYears ?? null,
+              education: data.education || null,
+              skills: parseSkills(data.skills),
+              source: data.source || null,
+              notes: data.notes || null,
+            },
+            select: { id: true, firstName: true, lastName: true },
+          }));
+
+        const application = await tx.candidateApplication.create({
+          data: {
+            vacancyId: vacancy.id,
+            candidateId: candidate.id,
+            stage: "APPLIED",
+            status: "ACTIVE",
+            notes: data.notes || null,
+          },
+          select: { id: true },
+        });
+
+        return {
+          candidateName: `${candidate.firstName} ${candidate.lastName}`,
+          applicationId: application.id,
+        };
+      }, SERIALIZABLE_TX),
+    );
+  } catch (error) {
+    if ((error as { code?: string }).code === "P2002") {
+      return { ok: false, error: "duplicateApplication" };
+    }
+    throw error;
   }
 
-  const application = await prisma.$transaction(async (tx) => {
-    const candidate =
-      existingCandidate ??
-      (await tx.candidate.create({
-        data: {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email,
-          phone: data.phone || null,
-          cvUrl: data.cvUrl || null,
-          experienceYears: data.experienceYears ?? null,
-          education: data.education || null,
-          skills: parseSkills(data.skills),
-          source: data.source || null,
-          notes: data.notes || null,
-        },
-      }));
-
-    return tx.candidateApplication.create({
-      data: {
-        vacancyId: vacancy.id,
-        candidateId: candidate.id,
-        stage: "APPLIED",
-        status: "ACTIVE",
-        notes: data.notes || null,
-      },
-      include: { candidate: true },
-    });
-  });
+  if ("error" in result) return { ok: false, error: result.error };
 
   await writeAudit({
     userId: user.id,
     action: "CREATE",
     entity: "CandidateApplication",
-    entityId: application.id,
+    entityId: result.applicationId,
     newData: {
-      vacancyId: vacancy.id,
-      candidate: `${application.candidate.firstName} ${application.candidate.lastName}`,
-      stage: application.stage,
+      vacancyId: data.vacancyId,
+      candidate: result.candidateName,
+      stage: "APPLIED",
     },
   });
 
@@ -354,12 +382,6 @@ export async function updateApplicationStageAction(
   if (!parsed.success) return { ok: false, error: "validation" };
   const data = parsed.data;
 
-  const application = await prisma.candidateApplication.findUnique({
-    where: { id: applicationId },
-    include: { vacancy: true },
-  });
-  if (!application) return { ok: false, error: "notFound" };
-
   const status =
     data.stage === "HIRED"
       ? "HIRED"
@@ -369,19 +391,45 @@ export async function updateApplicationStageAction(
           ? "WITHDRAWN"
           : "ACTIVE";
 
-  await prisma.$transaction(async (tx) => {
-    await tx.candidateApplication.update({
-      where: { id: applicationId },
-      data: {
-        stage: data.stage,
-        status,
-        rating: data.rating ?? null,
-        notes: data.notes || null,
-        rejectionReason: data.stage === "REJECTED" ? data.notes || null : null,
-      },
-    });
+  const result = await serializable(() =>
+    prisma.$transaction(async (tx) => {
+      const application = await tx.candidateApplication.findUnique({
+        where: { id: applicationId },
+        select: {
+          id: true,
+          stage: true,
+          status: true,
+          vacancyId: true,
+          vacancy: {
+            select: { id: true, openings: true, status: true },
+          },
+        },
+      });
+      if (!application) return { error: "notFound" as const };
 
-    if (data.stage === "HIRED") {
+      if (data.stage === "HIRED" && application.status !== "HIRED") {
+        if (application.vacancy.status === "CLOSED") {
+          return { error: "closedVacancy" as const };
+        }
+        const hiredBefore = await tx.candidateApplication.count({
+          where: { vacancyId: application.vacancyId, status: "HIRED" },
+        });
+        if (hiredBefore >= application.vacancy.openings) {
+          return { error: "closedVacancy" as const };
+        }
+      }
+
+      await tx.candidateApplication.update({
+        where: { id: applicationId },
+        data: {
+          stage: data.stage,
+          status,
+          rating: data.rating ?? null,
+          notes: data.notes || null,
+          rejectionReason: data.stage === "REJECTED" ? data.notes || null : null,
+        },
+      });
+
       const hired = await tx.candidateApplication.count({
         where: { vacancyId: application.vacancyId, status: "HIRED" },
       });
@@ -390,26 +438,28 @@ export async function updateApplicationStageAction(
           where: { id: application.vacancyId },
           data: { status: "FILLED" },
         });
-      }
-    } else if (application.vacancy.status === "FILLED") {
-      const hired = await tx.candidateApplication.count({
-        where: { vacancyId: application.vacancyId, status: "HIRED" },
-      });
-      if (hired < application.vacancy.openings) {
+      } else if (application.vacancy.status === "FILLED") {
         await tx.jobVacancy.update({
           where: { id: application.vacancyId },
           data: { status: "OPEN" },
         });
       }
-    }
-  });
+
+      return {
+        oldStage: application.stage,
+        oldStatus: application.status,
+      };
+    }, SERIALIZABLE_TX),
+  );
+
+  if ("error" in result) return { ok: false, error: result.error };
 
   await writeAudit({
     userId: user.id,
     action: "UPDATE",
     entity: "CandidateApplication",
     entityId: applicationId,
-    oldData: { stage: application.stage, status: application.status },
+    oldData: { stage: result.oldStage, status: result.oldStatus },
     newData: { stage: data.stage, status, rating: data.rating ?? null },
   });
 

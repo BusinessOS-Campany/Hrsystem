@@ -158,10 +158,66 @@ export default async function PayrollRunPage({
                 <EmptyState title={t("noPayslips")} />
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{employeesT("fullName")}</TableHead>
+              <>
+                <div className="divide-y md:hidden">
+                  {run.items.map((item) => (
+                    <div key={item.id} className="space-y-2 p-4">
+                      <div>
+                        <Link
+                          href={`/employees/${item.employeeId}`}
+                          className="text-sm font-medium hover:underline"
+                        >
+                          {localizedName(
+                            locale,
+                            `${item.employee.firstName} ${item.employee.lastName}`,
+                            `${item.employee.firstNameAr ?? ""} ${item.employee.lastNameAr ?? ""}`.trim(),
+                          )}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {item.employee.employeeNo} ·{" "}
+                          {item.employee.employments[0]
+                            ? localizedName(
+                                locale,
+                                item.employee.employments[0].department.name,
+                                item.employee.employments[0].department.nameAr,
+                              )
+                            : "—"}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">{t("basicSalary")}</p>
+                          <p className="font-medium">
+                            {formatMoney(item.basicSalary, locale, item.currency)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{t("gross")}</p>
+                          <p className="font-medium">
+                            {formatMoney(item.grossSalary, locale, item.currency)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{t("deductions")}</p>
+                          <p className="font-medium">
+                            {formatMoney(item.totalDeductions, locale, item.currency)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">{t("net")}</p>
+                          <p className="font-semibold">
+                            {formatMoney(item.netSalary, locale, item.currency)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{employeesT("fullName")}</TableHead>
                     <TableHead>{employeesT("department")}</TableHead>
                     <TableHead>{t("basicSalary")}</TableHead>
                     <TableHead>{t("gross")}</TableHead>
@@ -211,7 +267,9 @@ export default async function PayrollRunPage({
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+                  </Table>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
